@@ -51,9 +51,11 @@ public class ClientService implements ConnectionListener {
     private final ILogger logger;
     private final int THREAD_COUNT;
     final Worker[] workers;
+    final ExecutorService clientThreads;
 
     public ClientService(Node node) {
         this.node = node;
+        this.clientThreads = node.executorManager.threadPoolExecutor;
         this.logger = node.getLogger(this.getClass().getName());
         node.getClusterImpl().addMembershipListener(new ClientServiceMembershipListener());
         clientOperationHandlers[CONCURRENT_MAP_PUT.getValue()] = new MapPutHandler();
@@ -131,22 +133,23 @@ public class ClientService implements ConnectionListener {
     public void handle(Packet packet) {
         if (firstCall) {
             String threadNamePrefix = node.getThreadPoolNamePrefix("client.service");
-            for (int i = 0; i < THREAD_COUNT; i++) {
-                Worker worker = workers[i];
-                new Thread(node.threadGroup, worker, threadNamePrefix + i).start();
-            }
+//            for (int i = 0; i < THREAD_COUNT; i++) {
+//                Worker worker = workers[i];
+//                new Thread(node.threadGroup, worker, threadNamePrefix + i).start();
+//            }
             firstCall = false;
         }
         ClientEndpoint clientEndpoint = getClientEndpoint(packet.conn);
         CallContext callContext = clientEndpoint.getCallContext(packet.threadId);
         ClientOperationHandler clientOperationHandler = clientOperationHandlers[packet.operation.getValue()];
         ClientRequestHandler clientRequestHandler = new ClientRequestHandler(node, packet, callContext, clientOperationHandler);
-        if (packet.operation == CONCURRENT_MAP_UNLOCK) {
-            node.executorManager.executeNow(clientRequestHandler);
-        } else {
-            int hash = hash(callContext.getThreadId(), THREAD_COUNT);
-            workers[hash].addWork(clientRequestHandler);
-        }
+//        if (packet.operation == CONCURRENT_MAP_UNLOCK) {
+//            node.executorManager.executeNow(clientRequestHandler);
+//        } else {
+//            int hash = hash(callContext.getThreadId(), THREAD_COUNT);
+//            workers[hash].addWork(clientRequestHandler);
+        clientThreads.execute(clientRequestHandler);
+//        }
     }
 
     public void shutdown() {
@@ -422,7 +425,7 @@ public class ClientService implements ConnectionListener {
             Collection<Instance> instances = node.factory.getInstances();
             Object[] instanceIds = new Object[instances.size()];
             int counter = 0;
-            for (Iterator<Instance> instanceIterator = instances.iterator(); instanceIterator.hasNext();) {
+            for (Iterator<Instance> instanceIterator = instances.iterator(); instanceIterator.hasNext(); ) {
                 Instance instance = instanceIterator.next();
                 Object id = instance.getId();
                 if (id instanceof FactoryImpl.ProxyKey) {
@@ -443,7 +446,7 @@ public class ClientService implements ConnectionListener {
             Set<Member> members = cluster.getMembers();
             Set<Data> setData = new LinkedHashSet<Data>();
             if (members != null) {
-                for (Iterator<Member> iterator = members.iterator(); iterator.hasNext();) {
+                for (Iterator<Member> iterator = members.iterator(); iterator.hasNext(); ) {
                     Member member = iterator.next();
                     setData.add(toData(member));
                 }
@@ -464,7 +467,7 @@ public class ClientService implements ConnectionListener {
             } else {
                 Set<Partition> partitions = partitionService.getPartitions();
                 Set<Data> setData = new LinkedHashSet<Data>();
-                for (Iterator<Partition> iterator = partitions.iterator(); iterator.hasNext();) {
+                for (Iterator<Partition> iterator = partitions.iterator(); iterator.hasNext(); ) {
                     Partition partition = iterator.next();
                     setData.add(toData(new PartitionImpl(partition.getPartitionId(), (MemberImpl) partition.getOwner())));
                 }
