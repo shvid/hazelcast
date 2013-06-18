@@ -55,6 +55,7 @@ import com.hazelcast.transaction.TransactionContext;
 import com.hazelcast.transaction.TransactionException;
 import com.hazelcast.transaction.TransactionOptions;
 import com.hazelcast.transaction.TransactionalTask;
+import com.hazelcast.util.ExceptionUtil;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -98,8 +99,14 @@ public final class HazelcastClient implements HazelcastInstance {
         proxyManager = new ProxyManager(this);
         executionService = new ClientExecutionServiceImpl(name, threadGroup, Thread.currentThread().getContextClassLoader());
         clusterService = new ClientClusterServiceImpl(this);
-        serializationService = (SerializationServiceImpl) new SerializationServiceBuilder()
-            .setClassLoader( config.getClassLoader() ).setConfig( config.getSerializationConfig() ).build();
+        SerializationService ss;
+        try {
+            ss = new SerializationServiceBuilder().setManagedContext(new HazelcastClientManagedContext(this, config.getManagedContext() ))
+                .setClassLoader(config.getClassLoader()).setConfig(config.getSerializationConfig()).build();
+        } catch (Exception e) {
+            throw ExceptionUtil.rethrow(e);
+        }
+        serializationService = (SerializationServiceImpl) ss;
         LoadBalancer loadBalancer = config.getLoadBalancer();
         if (loadBalancer == null) {
             loadBalancer = new RoundRobinLB();
