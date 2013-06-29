@@ -18,6 +18,7 @@ package com.hazelcast.map.proxy;
 
 import com.hazelcast.core.EntryListener;
 import com.hazelcast.core.EntryView;
+import com.hazelcast.core.MapReduceTask;
 import com.hazelcast.map.EntryProcessor;
 import com.hazelcast.map.MapInterceptor;
 import com.hazelcast.map.MapService;
@@ -27,6 +28,7 @@ import com.hazelcast.query.Predicate;
 import com.hazelcast.spi.Invocation;
 import com.hazelcast.spi.NodeEngine;
 import com.hazelcast.spi.Operation;
+import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.util.IterationType;
 import com.hazelcast.util.executor.DelegatingFuture;
 
@@ -318,6 +320,11 @@ public class ObjectMapProxy<K, V> extends MapProxySupport implements MapProxy<K,
     }
 
     @Override
+	public <KeyOut, ValueOut> MapReduceTask<K, V, KeyOut, ValueOut> buildMapReduceTask() {
+		return new MapReduceTaskImpl<K, V, KeyOut, ValueOut>(getName(), getNodeEngine());
+	}
+
+	@Override
     public String toString() {
         final StringBuilder sb = new StringBuilder();
         sb.append("IMap");

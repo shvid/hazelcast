@@ -301,7 +301,6 @@ public class MapPortableHook implements PortableHook {
                 };
 
 
-
             }
 
             public Portable create(int classId) {

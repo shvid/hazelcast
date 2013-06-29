@@ -21,6 +21,7 @@ import com.hazelcast.client.spi.EventHandler;
 import com.hazelcast.core.*;
 import com.hazelcast.map.*;
 import com.hazelcast.map.client.*;
+import com.hazelcast.map.proxy.MapReduceTaskImpl;
 import com.hazelcast.monitor.LocalMapStats;
 import com.hazelcast.nio.serialization.Data;
 import com.hazelcast.query.Predicate;
@@ -455,7 +456,12 @@ public final class ClientMapProxy<K, V> extends ClientProxy implements IMap<K, V
         return name;
     }
 
-    private Data toData(Object o) {
+    @Override
+	public <KeyOut, ValueOut> MapReduceTask<K, V, KeyOut, ValueOut> buildMapReduceTask() {
+		return new ClientMapReduceTaskImpl<K, V, KeyOut, ValueOut>(name, getContext());
+	}
+
+	private Data toData(Object o) {
         return getContext().getSerializationService().toData(o);
     }
 

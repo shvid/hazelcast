@@ -876,4 +876,6 @@ public interface IMap<K, V> extends ConcurrentMap<K, V>, BaseMap<K, V> {
      */
     Map<K,Object> executeOnEntries(EntryProcessor entryProcessor);
 
+    <KeyOut, ValueOut> MapReduceTask<K, V, KeyOut, ValueOut> buildMapReduceTask();
+    
 }
