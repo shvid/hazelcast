@@ -21,7 +21,7 @@ import com.hazelcast.client.spi.EventHandler;
 import com.hazelcast.core.*;
 import com.hazelcast.map.*;
 import com.hazelcast.map.client.*;
-import com.hazelcast.map.proxy.MapReduceTaskImpl;
+import com.hazelcast.map.mapreduce.MapReduceTaskImpl;
 import com.hazelcast.monitor.LocalMapStats;
 import com.hazelcast.nio.serialization.Data;
 import com.hazelcast.query.Predicate;

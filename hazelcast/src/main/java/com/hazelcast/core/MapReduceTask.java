@@ -19,6 +19,7 @@ package com.hazelcast.core;
 import java.util.Map;
 
 import com.hazelcast.map.mapreduce.Mapper;
+import com.hazelcast.map.mapreduce.Reducer;
 
 public interface MapReduceTask<KeyIn, ValueIn, KeyOut, ValueOut> {
 

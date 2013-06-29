@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.hazelcast.core;
+package com.hazelcast.map.mapreduce;
 
 import java.io.Serializable;
 import java.util.Iterator;

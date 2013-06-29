@@ -26,9 +26,9 @@ import com.hazelcast.core.Collator;
 import com.hazelcast.core.MapReduceCollatorListener;
 import com.hazelcast.core.MapReduceListener;
 import com.hazelcast.core.MapReduceTask;
-import com.hazelcast.core.Reducer;
 import com.hazelcast.map.client.MapReduceRequest;
 import com.hazelcast.map.mapreduce.Mapper;
+import com.hazelcast.map.mapreduce.Reducer;
 import com.hazelcast.util.ExceptionUtil;
 
 public class ClientMapReduceTaskImpl<KeyIn, ValueIn, KeyOut, ValueOut> implements MapReduceTask<KeyIn, ValueIn, KeyOut, ValueOut> {

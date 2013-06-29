@@ -18,8 +18,8 @@ package com.hazelcast.map.operation;
 
 import java.io.IOException;
 
-import com.hazelcast.core.Reducer;
 import com.hazelcast.map.mapreduce.Mapper;
+import com.hazelcast.map.mapreduce.Reducer;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.spi.Operation;

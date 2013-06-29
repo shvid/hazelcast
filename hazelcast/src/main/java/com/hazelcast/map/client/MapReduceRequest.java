@@ -23,9 +23,9 @@ import java.util.Map.Entry;
 
 import com.hazelcast.client.AllPartitionsClientRequest;
 import com.hazelcast.client.RetryableRequest;
-import com.hazelcast.core.Reducer;
 import com.hazelcast.map.MapService;
 import com.hazelcast.map.mapreduce.Mapper;
+import com.hazelcast.map.mapreduce.Reducer;
 import com.hazelcast.map.operation.MapReduceOperationFactory;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;

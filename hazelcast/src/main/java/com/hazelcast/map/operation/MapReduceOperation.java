@@ -22,10 +22,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import com.hazelcast.core.Reducer;
 import com.hazelcast.map.RecordStore;
 import com.hazelcast.map.mapreduce.CollectorImpl;
 import com.hazelcast.map.mapreduce.Mapper;
+import com.hazelcast.map.mapreduce.Reducer;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.Data;

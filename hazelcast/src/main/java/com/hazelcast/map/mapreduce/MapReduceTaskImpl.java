@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.hazelcast.map.proxy;
+package com.hazelcast.map.mapreduce;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -26,9 +26,7 @@ import com.hazelcast.core.Collator;
 import com.hazelcast.core.MapReduceCollatorListener;
 import com.hazelcast.core.MapReduceListener;
 import com.hazelcast.core.MapReduceTask;
-import com.hazelcast.core.Reducer;
 import com.hazelcast.map.MapService;
-import com.hazelcast.map.mapreduce.Mapper;
 import com.hazelcast.map.operation.MapReduceOperation;
 import com.hazelcast.spi.NodeEngine;
 import com.hazelcast.spi.OperationService;
