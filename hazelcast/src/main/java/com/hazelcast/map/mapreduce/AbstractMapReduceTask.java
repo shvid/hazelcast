@@ -1,0 +1,148 @@
+/*
+ * Copyright (c) 2008-2013, Hazelcast, Inc. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.hazelcast.map.mapreduce;
+
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+
+import com.hazelcast.core.Collator;
+import com.hazelcast.core.MapReduceCollatorListener;
+import com.hazelcast.core.MapReduceListener;
+import com.hazelcast.core.MapReduceTask;
+import com.hazelcast.util.ExceptionUtil;
+
+public abstract class AbstractMapReduceTask<KeyIn, ValueIn, KeyOut, ValueOut> implements MapReduceTask<KeyIn, ValueIn, KeyOut, ValueOut> {
+
+    protected final String name;
+
+    protected Mapper<KeyIn, ValueIn, KeyOut, ValueOut> mapper;
+    protected Reducer<KeyOut, ValueOut> reducer;
+
+    public AbstractMapReduceTask(String name) {
+        this.name = name;
+    }
+
+    @Override
+    public MapReduceTask<KeyOut, List<ValueOut>, KeyOut, ValueOut> mapper(Mapper<KeyIn, ValueIn, KeyOut, ValueOut> mapper) {
+        if (mapper == null)
+            throw new IllegalStateException("mapper must not be null");
+        if (this.mapper != null)
+            throw new IllegalStateException("mapper already set");
+        this.mapper = mapper;
+        return (MapReduceTask<KeyOut, List<ValueOut>, KeyOut, ValueOut>) this;
+    }
+
+    @Override
+    public MapReduceTask<KeyOut, ValueOut, KeyOut, ValueOut> reducer(Reducer<KeyOut, ValueOut> reducer) {
+        if (reducer == null)
+            throw new IllegalStateException("reducer must not be null");
+        if (this.reducer != null)
+            throw new IllegalStateException("reducer already set");
+        this.reducer = reducer;
+        return (MapReduceTask<KeyOut, ValueOut, KeyOut, ValueOut>) this;
+    }
+
+    @Override
+    public Map<KeyIn, ValueIn> submit() {
+        try {
+            Map<Integer, Object> responses = invokeTasks();
+            Map<KeyOut, List<ValueOut>> groupedResponses = groupResponsesByKey(responses);
+            if (reducer != null) {
+                return (Map<KeyIn, ValueIn>) finalReduceStep(groupedResponses);
+            } else {
+                return (Map<KeyIn, ValueIn>) groupedResponses;
+            }
+        } catch (Throwable t) {
+            ExceptionUtil.rethrow(t);
+        }
+        return Collections.emptyMap();
+    }
+
+    @Override
+    public <R> R submit(Collator<KeyIn, ValueIn, R> collator) {
+        Map<KeyIn, ValueIn> reducedResults = submit();
+        return collator.collate(reducedResults);
+    }
+
+    @Override
+    public void submitAsync(MapReduceListener<KeyOut, ValueOut> listener) {
+        MapReduceBackgroundTask<?> task = buildMapReduceBackgroundTask(listener);
+        invokeAsyncTask(task);
+    }
+
+    @Override
+    public <R> void submitAsync(Collator<KeyOut, ValueOut, R> collator, MapReduceCollatorListener<R> listener) {
+        MapReduceBackgroundTask<R> task = buildMapReduceBackgroundTask(collator, listener);
+        invokeAsyncTask(task);
+    }
+
+    protected Map<KeyOut, ValueOut> finalReduceStep(Map<KeyOut, List<ValueOut>> groupedResponses) {
+        Map<KeyOut, ValueOut> reducedResults = new HashMap<KeyOut, ValueOut>();
+        // Final local reduce step
+        for (Entry<KeyOut, List<ValueOut>> entry : groupedResponses.entrySet()) {
+            reducedResults.put(entry.getKey(), reducer.reduce(entry.getKey(), entry.getValue().iterator()));
+        }
+        return reducedResults;
+    }
+
+    protected Map<KeyOut, List<ValueOut>> groupResponsesByKey(Map<Integer, Object> responses) {
+        Map<KeyOut, List<ValueOut>> groupedResponses = new HashMap<KeyOut, List<ValueOut>>();
+        for (Entry<Integer, Object> entry : responses.entrySet()) {
+            Map<KeyOut, ValueOut> resultMap = (Map<KeyOut, ValueOut>) entry.getValue();
+            for (Entry<KeyOut, ValueOut> resultMapEntry : resultMap.entrySet()) {
+                List<ValueOut> list = groupedResponses.get(resultMapEntry.getKey());
+                if (list == null) {
+                    list = new LinkedList<ValueOut>();
+                    groupedResponses.put(resultMapEntry.getKey(), list);
+                }
+                list.add(resultMapEntry.getValue());
+            }
+        }
+        return groupedResponses;
+    }
+
+    protected abstract Map<Integer, Object> invokeTasks() throws Exception;
+
+    protected abstract <R> MapReduceBackgroundTask<R> buildMapReduceBackgroundTask(MapReduceListener<KeyOut, ValueOut> listener);
+
+    protected abstract <R> MapReduceBackgroundTask<R> buildMapReduceBackgroundTask(Collator<KeyOut, ValueOut, R> collator, MapReduceCollatorListener<R> collatorListener);
+
+    protected abstract <R> void invokeAsyncTask(MapReduceBackgroundTask<R> task);
+
+    protected abstract class MapReduceBackgroundTask<R> implements Runnable {
+
+        protected final MapReduceListener<KeyOut, ValueOut> listener;
+        protected final MapReduceCollatorListener<R> collatorListener;
+        protected final Collator<KeyOut, ValueOut, R> collator;
+
+        protected MapReduceBackgroundTask(MapReduceListener<KeyOut, ValueOut> listener) {
+            this.listener = listener;
+            this.collator = null;
+            this.collatorListener = null;
+        }
+
+        protected MapReduceBackgroundTask(Collator<KeyOut, ValueOut, R> collator, MapReduceCollatorListener<R> collatorListener) {
+            this.collator = collator;
+            this.collatorListener = collatorListener;
+            this.listener = null;
+        }
+    }
+}

@@ -17,9 +17,7 @@
 package com.hazelcast.map.client;
 
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.Map;
-import java.util.Map.Entry;
 
 import com.hazelcast.client.AllPartitionsClientRequest;
 import com.hazelcast.client.RetryableRequest;
@@ -34,51 +32,46 @@ import com.hazelcast.spi.OperationFactory;
 
 public class MapReduceRequest<KeyIn, ValueIn, KeyOut, ValueOut> extends AllPartitionsClientRequest implements DataSerializable, RetryableRequest {
 
-	private Mapper<KeyIn, ValueIn, KeyOut, ValueOut> mapper;
-	private Reducer<KeyOut, ValueOut> reducer;
-	private String name;
-	
-	public MapReduceRequest() {
-	}
-	
-	public MapReduceRequest(String name, Mapper<KeyIn, ValueIn, KeyOut, ValueOut> mapper, Reducer<KeyOut, ValueOut> reducer) {
-		this.name = name;
-		this.mapper = mapper;
-		this.reducer = reducer;
-	}
+    private Mapper<KeyIn, ValueIn, KeyOut, ValueOut> mapper;
+    private Reducer<KeyOut, ValueOut> reducer;
+    private String name;
 
-	@Override
-	public void writeData(ObjectDataOutput out) throws IOException {
-		out.writeUTF(name);
-		out.writeObject(mapper);
-		out.writeObject(reducer);
-	}
+    public MapReduceRequest() {
+    }
 
-	@Override
-	public void readData(ObjectDataInput in) throws IOException {
-		name = in.readUTF();
-		mapper = in.readObject();
-		reducer = in.readObject();
-	}
+    public MapReduceRequest(String name, Mapper<KeyIn, ValueIn, KeyOut, ValueOut> mapper, Reducer<KeyOut, ValueOut> reducer) {
+        this.name = name;
+        this.mapper = mapper;
+        this.reducer = reducer;
+    }
 
-	@Override
-	protected OperationFactory createOperationFactory() {
-		return new MapReduceOperationFactory<KeyIn, ValueIn, KeyOut, ValueOut>(
-				name, mapper, reducer);
-	}
+    @Override
+    public void writeData(ObjectDataOutput out) throws IOException {
+        out.writeUTF(name);
+        out.writeObject(mapper);
+        out.writeObject(reducer);
+    }
 
-	@Override
-	protected Object reduce(Map<Integer, Object> map) {
-		Map<KeyOut, ValueOut> reducedResults = new HashMap<KeyOut, ValueOut>();
-		for (Entry<Integer, Object> entry : map.entrySet()) {
-			reducedResults.putAll((Map<KeyOut, ValueOut>) entry.getValue());
-		}
-		return reducedResults;
-	}
+    @Override
+    public void readData(ObjectDataInput in) throws IOException {
+        name = in.readUTF();
+        mapper = in.readObject();
+        reducer = in.readObject();
+    }
 
-	@Override
-	public String getServiceName() {
-		return MapService.SERVICE_NAME;
-	}
+    @Override
+    protected OperationFactory createOperationFactory() {
+        return new MapReduceOperationFactory<KeyIn, ValueIn, KeyOut, ValueOut>(name, mapper, reducer);
+    }
+
+    @Override
+    protected Object reduce(Map<Integer, Object> map) {
+        return map;
+    }
+
+    @Override
+    public String getServiceName() {
+        return MapService.SERVICE_NAME;
+    }
 
 }

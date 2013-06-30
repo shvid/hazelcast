@@ -33,57 +33,57 @@ import com.hazelcast.spi.PartitionAwareOperation;
 
 public class MapReduceOperation<KeyIn, ValueIn, KeyOut, ValueOut> extends AbstractMapOperation implements PartitionAwareOperation {
 
-	private Mapper<KeyIn, ValueIn, KeyOut, ValueOut> mapper;
-	private Reducer<KeyOut, ValueOut> reducer;
-	
-	private transient Object response;
-	
-	public MapReduceOperation() {
-	}
+    private Mapper<KeyIn, ValueIn, KeyOut, ValueOut> mapper;
+    private Reducer<KeyOut, ValueOut> reducer;
 
-	public MapReduceOperation(String name, Mapper<KeyIn, ValueIn, KeyOut, ValueOut> mapper,	Reducer<KeyOut, ValueOut> reducer) {
-		super(name);
-		this.mapper = mapper;
-		this.reducer = reducer;
-	}
+    private transient Object response;
 
-	@Override
-	public void run() throws Exception {
-		int partitionId = getPartitionId();
+    public MapReduceOperation() {
+    }
+
+    public MapReduceOperation(String name, Mapper<KeyIn, ValueIn, KeyOut, ValueOut> mapper, Reducer<KeyOut, ValueOut> reducer) {
+        super(name);
+        this.mapper = mapper;
+        this.reducer = reducer;
+    }
+
+    @Override
+    public void run() throws Exception {
+        int partitionId = getPartitionId();
         RecordStore recordStore = mapService.getRecordStore(partitionId, name);
         CollectorImpl<KeyOut, ValueOut> collector = new CollectorImpl<KeyOut, ValueOut>();
         for (Entry<Data, Data> entry : recordStore.entrySetData()) {
-        	KeyIn key = (KeyIn) mapService.toObject(entry.getKey());
-        	ValueIn value = (ValueIn) mapService.toObject(entry.getValue());
-        	mapper.map(key, value, collector);
+            KeyIn key = (KeyIn) mapService.toObject(entry.getKey());
+            ValueIn value = (ValueIn) mapService.toObject(entry.getValue());
+            mapper.map(key, value, collector);
         }
         if (reducer != null) {
-	        Map<KeyOut, ValueOut> reducedResults = new HashMap<KeyOut, ValueOut>(collector.emitted.keySet().size());
-	        for (Entry<KeyOut, List<ValueOut>> entry : collector.emitted.entrySet()) {
-	        	reducedResults.put(entry.getKey(), reducer.reduce(entry.getKey(), entry.getValue().iterator()));
-	        }
-	        response = reducedResults;
+            Map<KeyOut, ValueOut> reducedResults = new HashMap<KeyOut, ValueOut>(collector.emitted.keySet().size());
+            for (Entry<KeyOut, List<ValueOut>> entry : collector.emitted.entrySet()) {
+                reducedResults.put(entry.getKey(), reducer.reduce(entry.getKey(), entry.getValue().iterator()));
+            }
+            response = reducedResults;
         } else {
-        	response = collector.emitted;
+            response = collector.emitted;
         }
-	}
+    }
 
-	@Override
-	public Object getResponse() {
-		return response;
-	}
+    @Override
+    public Object getResponse() {
+        return response;
+    }
 
-	@Override
-	protected void writeInternal(ObjectDataOutput out) throws IOException {
-		super.writeInternal(out);
-		out.writeObject(mapper);
-		out.writeObject(reducer);
-	}
+    @Override
+    protected void writeInternal(ObjectDataOutput out) throws IOException {
+        super.writeInternal(out);
+        out.writeObject(mapper);
+        out.writeObject(reducer);
+    }
 
-	@Override
-	protected void readInternal(ObjectDataInput in) throws IOException {
-		super.readInternal(in);
-		mapper = in.readObject();
-		reducer = in.readObject();
-	}
+    @Override
+    protected void readInternal(ObjectDataInput in) throws IOException {
+        super.readInternal(in);
+        mapper = in.readObject();
+        reducer = in.readObject();
+    }
 }

@@ -23,13 +23,12 @@ import com.hazelcast.map.EntryProcessor;
 import com.hazelcast.map.MapInterceptor;
 import com.hazelcast.map.MapService;
 import com.hazelcast.map.SimpleEntryView;
-import com.hazelcast.map.mapreduce.MapReduceTaskImpl;
+import com.hazelcast.map.mapreduce.NodeMapReduceTaskImpl;
 import com.hazelcast.nio.serialization.Data;
 import com.hazelcast.query.Predicate;
 import com.hazelcast.spi.Invocation;
 import com.hazelcast.spi.NodeEngine;
 import com.hazelcast.spi.Operation;
-import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.util.IterationType;
 import com.hazelcast.util.executor.DelegatingFuture;
 
@@ -322,7 +321,7 @@ public class ObjectMapProxy<K, V> extends MapProxySupport implements MapProxy<K,
 
     @Override
 	public <KeyOut, ValueOut> MapReduceTask<K, V, KeyOut, ValueOut> buildMapReduceTask() {
-		return new MapReduceTaskImpl<K, V, KeyOut, ValueOut>(getName(), getNodeEngine());
+		return new NodeMapReduceTaskImpl<K, V, KeyOut, ValueOut>(getName(), getNodeEngine());
 	}
 
 	@Override

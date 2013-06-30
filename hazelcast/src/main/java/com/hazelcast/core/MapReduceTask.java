@@ -16,6 +16,7 @@
 
 package com.hazelcast.core;
 
+import java.util.List;
 import java.util.Map;
 
 import com.hazelcast.map.mapreduce.Mapper;
@@ -23,13 +24,13 @@ import com.hazelcast.map.mapreduce.Reducer;
 
 public interface MapReduceTask<KeyIn, ValueIn, KeyOut, ValueOut> {
 
-	MapReduceTask<KeyIn, ValueIn, KeyOut, ValueOut> mapper(Mapper<KeyIn, ValueIn, KeyOut, ValueOut> mapper);
+	MapReduceTask<KeyOut, List<ValueOut>, KeyOut, ValueOut> mapper(Mapper<KeyIn, ValueIn, KeyOut, ValueOut> mapper);
 	
-	MapReduceTask<KeyIn, ValueIn, KeyOut, ValueOut> reducer(Reducer<KeyOut, ValueOut> reducer);
+	MapReduceTask<KeyOut, ValueOut, KeyOut, ValueOut> reducer(Reducer<KeyOut, ValueOut> reducer);
 	
-	Map<KeyOut, ValueOut> submit();
+	Map<KeyIn, ValueIn> submit();
 	
-	<R> R submit(Collator<KeyOut, ValueOut, R> collator);
+	<R> R submit(Collator<KeyIn, ValueIn, R> collator);
 	
 	void submitAsync(MapReduceListener<KeyOut, ValueOut> listener);
 

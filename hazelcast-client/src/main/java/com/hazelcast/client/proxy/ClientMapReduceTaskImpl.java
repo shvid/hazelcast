@@ -16,7 +16,6 @@
 
 package com.hazelcast.client.proxy;
 
-import java.util.Collections;
 import java.util.Map;
 
 import com.hazelcast.client.spi.ClientContext;
@@ -25,91 +24,51 @@ import com.hazelcast.client.spi.ClientInvocationService;
 import com.hazelcast.core.Collator;
 import com.hazelcast.core.MapReduceCollatorListener;
 import com.hazelcast.core.MapReduceListener;
-import com.hazelcast.core.MapReduceTask;
 import com.hazelcast.map.client.MapReduceRequest;
-import com.hazelcast.map.mapreduce.Mapper;
-import com.hazelcast.map.mapreduce.Reducer;
+import com.hazelcast.map.mapreduce.AbstractMapReduceTask;
 import com.hazelcast.util.ExceptionUtil;
 
-public class ClientMapReduceTaskImpl<KeyIn, ValueIn, KeyOut, ValueOut> implements MapReduceTask<KeyIn, ValueIn, KeyOut, ValueOut> {
+public class ClientMapReduceTaskImpl<KeyIn, ValueIn, KeyOut, ValueOut> extends AbstractMapReduceTask<KeyIn, ValueIn, KeyOut, ValueOut> {
 
 	private final ClientContext context;
-	private final String name;
-	
-	private Mapper<KeyIn, ValueIn, KeyOut, ValueOut> mapper;
-	private Reducer<KeyOut, ValueOut> reducer;
 
 	ClientMapReduceTaskImpl(String name, ClientContext context) {
+		super(name);
 		this.context = context;
-		this.name = name;
-	}
-	
-	@Override
-	public MapReduceTask<KeyIn, ValueIn, KeyOut, ValueOut> mapper(Mapper<KeyIn, ValueIn, KeyOut, ValueOut> mapper) {
-		if (mapper != null)
-			throw new IllegalStateException("mapper must not be null");
-		if (this.mapper != null)
-			throw new IllegalStateException("mapper already set");
-		this.mapper = mapper;
-		return this;
 	}
 
 	@Override
-	public MapReduceTask<KeyIn, ValueIn, KeyOut, ValueOut> reducer(Reducer<KeyOut, ValueOut> reducer) {
-		if (reducer != null)
-			throw new IllegalStateException("reducer must not be null");
-		if (this.reducer != null)
-			throw new IllegalStateException("reducer already set");
-		this.reducer = reducer;
-		return this;
-	}
-
-	@Override
-	public Map<KeyOut, ValueOut> submit() {
+	protected Map<Integer, Object> invokeTasks() throws Exception {
 		ClientInvocationService cis = context.getInvocationService();
 		MapReduceRequest<KeyIn, ValueIn, KeyOut, ValueOut> request;
 		request = new MapReduceRequest<KeyIn, ValueIn, KeyOut, ValueOut>(name, mapper, reducer);
-		try {
-			return (Map<KeyOut, ValueOut>) cis.invokeOnRandomTarget(request);
-		} catch (Throwable t) {
-			ExceptionUtil.rethrow(t);
-		}
-		return Collections.emptyMap();
+		return cis.invokeOnRandomTarget(request);
 	}
 
 	@Override
-	public <R> R submit(Collator<KeyOut, ValueOut, R> collator) {
-		Map<KeyOut, ValueOut> reducedResults = submit();
-		return collator.collate(reducedResults);
+	protected <R> MapReduceBackgroundTask<R> buildMapReduceBackgroundTask(MapReduceListener<KeyOut, ValueOut> listener) {
+		return new ClientMapReduceBackgroundTask(listener);
 	}
 
 	@Override
-	public void submitAsync(MapReduceListener<KeyOut, ValueOut> listener) {
+	protected <R> MapReduceBackgroundTask<R> buildMapReduceBackgroundTask(Collator<KeyOut, ValueOut, R> collator, MapReduceCollatorListener<R> collatorListener) {
+		return new ClientMapReduceBackgroundTask(collator, collatorListener);
+	}
+
+	@Override
+	protected <R> void invokeAsyncTask(MapReduceBackgroundTask<R> task) {
 		ClientExecutionService es = context.getExecutionService();
-		es.execute(new ClientMapReduceBackgroundTask(listener));
+		es.execute(task);
 	}
 
-	@Override
-	public <R> void submitAsync(Collator<KeyOut, ValueOut, R> collator, MapReduceCollatorListener<R> listener) {
-		ClientExecutionService es = context.getExecutionService();
-		es.execute(new ClientMapReduceBackgroundTask<R>(collator, listener));
-	}
-
-	private class ClientMapReduceBackgroundTask<R> implements Runnable {
-		private final MapReduceListener<KeyOut, ValueOut> listener;
-		private final MapReduceCollatorListener<R> collatorListener;
-		private final Collator<KeyOut, ValueOut, R> collator;
+	private class ClientMapReduceBackgroundTask<R> extends MapReduceBackgroundTask<R> {
 		
 		private ClientMapReduceBackgroundTask(MapReduceListener<KeyOut, ValueOut> listener) {
-			this.listener = listener;
-			this.collator = null;
-			this.collatorListener = null;
+			super(listener);
 		}
 		
 		private ClientMapReduceBackgroundTask(Collator<KeyOut, ValueOut, R> collator, MapReduceCollatorListener<R> collatorListener) {
-			this.collator = collator;
-			this.collatorListener = collatorListener;
-			this.listener = null;
+			super(collator, collatorListener);
 		}
 
 		@Override
