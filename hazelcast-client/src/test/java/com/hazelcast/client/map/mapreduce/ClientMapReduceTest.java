@@ -29,7 +29,6 @@ import org.junit.experimental.categories.Category;
 import org.junit.runner.RunWith;
 
 import com.hazelcast.client.HazelcastClient;
-import com.hazelcast.config.Config;
 import com.hazelcast.core.Collator;
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
@@ -40,7 +39,6 @@ import com.hazelcast.map.mapreduce.Mapper;
 import com.hazelcast.map.mapreduce.Reducer;
 import com.hazelcast.test.HazelcastJUnit4ClassRunner;
 import com.hazelcast.test.HazelcastTestSupport;
-import com.hazelcast.test.TestHazelcastInstanceFactory;
 import com.hazelcast.test.annotation.SerialTest;
 
 @RunWith(HazelcastJUnit4ClassRunner.class)

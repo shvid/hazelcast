@@ -18,6 +18,6 @@ package com.hazelcast.map.mapreduce;
 
 public interface Collector<Key, Value> {
 
-	void emit(Key key, Value value);
+    void emit(Key key, Value value);
 
 }

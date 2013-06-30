@@ -49,14 +49,12 @@ public class NodeMapReduceTaskImpl<KeyIn, ValueIn, KeyOut, ValueOut> extends Abs
 
     @Override
     protected <R> MapReduceBackgroundTask<R> buildMapReduceBackgroundTask(MapReduceListener<KeyOut, ValueOut> listener) {
-        // TODO Auto-generated method stub
-        return null;
+        return new NodeMapReduceBackgroundTask(listener);
     }
 
     @Override
     protected <R> MapReduceBackgroundTask<R> buildMapReduceBackgroundTask(Collator<KeyOut, ValueOut, R> collator, MapReduceCollatorListener<R> collatorListener) {
-        // TODO Auto-generated method stub
-        return null;
+        return new NodeMapReduceBackgroundTask<R>(collator, collatorListener);
     }
 
     @Override

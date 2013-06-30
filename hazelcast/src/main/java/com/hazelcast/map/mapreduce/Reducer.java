@@ -21,6 +21,6 @@ import java.util.Iterator;
 
 public interface Reducer<Key, Value> extends Serializable {
 
-	Value reduce(Key key, Iterator<Value> values);
-	
+    Value reduce(Key key, Iterator<Value> values);
+
 }

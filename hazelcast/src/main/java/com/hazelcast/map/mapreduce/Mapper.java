@@ -20,6 +20,6 @@ import java.io.Serializable;
 
 public interface Mapper<KeyIn, ValueIn, KeyOut, ValueOut> extends Serializable {
 
-	void map(KeyIn key, ValueIn value, Collector<KeyOut, ValueOut> collector);
+    void map(KeyIn key, ValueIn value, Collector<KeyOut, ValueOut> collector);
 
 }

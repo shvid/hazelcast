@@ -23,15 +23,15 @@ import java.util.Map;
 
 public class CollectorImpl<Key, Value> implements Collector<Key, Value> {
 
-	public final Map<Key, List<Value>> emitted = new HashMap<Key, List<Value>>();
+    public final Map<Key, List<Value>> emitted = new HashMap<Key, List<Value>>();
 
-	@Override
-	public void emit(Key key, Value value) {
-		List<Value> values = emitted.get(key);
-		if (values == null) {
-			values = new LinkedList<Value>();
-			emitted.put(key, values);
-		}
-		values.add(value);
-	}
+    @Override
+    public void emit(Key key, Value value) {
+        List<Value> values = emitted.get(key);
+        if (values == null) {
+            values = new LinkedList<Value>();
+            emitted.put(key, values);
+        }
+        values.add(value);
+    }
 }
