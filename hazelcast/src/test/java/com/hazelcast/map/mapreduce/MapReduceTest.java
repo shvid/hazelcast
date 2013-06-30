@@ -23,7 +23,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Semaphore;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.After;
 import org.junit.Before;
@@ -80,6 +79,26 @@ public class MapReduceTest extends HazelcastTestSupport {
         for (List<Integer> value : result.values()) {
             assertEquals(1, value.size());
         }
+    }
+
+    @Test(timeout = 20000)
+    public void testMapperComplexMapping() throws Exception {
+        TestHazelcastInstanceFactory nodeFactory = createHazelcastInstanceFactory(4);
+        final Config config = new Config();
+
+        HazelcastInstance h1 = nodeFactory.newHazelcastInstance(config);
+        HazelcastInstance h2 = nodeFactory.newHazelcastInstance(config);
+        HazelcastInstance h3 = nodeFactory.newHazelcastInstance(config);
+
+        IMap<Integer, Integer> m1 = h1.getMap(MAP_NAME);
+        for (int i = 0; i < 100; i++) {
+            m1.put(i, i);
+        }
+
+        MapReduceTask<Integer, Integer, String, Integer> task = m1.buildMapReduceTask();
+        Map<String, List<Integer>> result = task.mapper(new GroupingTestMapper(2)).submit();
+        assertEquals(1, result.size());
+        assertEquals(25, result.values().iterator().next().size());
     }
 
     @Test(timeout = 20000)
@@ -337,9 +356,20 @@ public class MapReduceTest extends HazelcastTestSupport {
 
     public static class GroupingTestMapper implements Mapper<Integer, Integer, String, Integer> {
 
+        private int moduleKey = -1;
+        
+        public GroupingTestMapper() {
+        }
+        
+        public GroupingTestMapper(int moduleKey) {
+            this.moduleKey = moduleKey;
+        }
+        
         @Override
         public void map(Integer key, Integer value, Collector<String, Integer> collector) {
-            collector.emit(String.valueOf(key % 4), value);
+            if (moduleKey == -1 || (key % 4) == moduleKey) {
+                collector.emit(String.valueOf(key % 4), value);
+            }
         }
     }
 
