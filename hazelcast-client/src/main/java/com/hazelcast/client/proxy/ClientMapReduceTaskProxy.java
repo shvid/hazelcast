@@ -30,53 +30,54 @@ import com.hazelcast.util.ExceptionUtil;
 
 public class ClientMapReduceTaskProxy<KeyIn, ValueIn, KeyOut, ValueOut> extends AbstractMapReduceTask<KeyIn, ValueIn, KeyOut, ValueOut> {
 
-	private final ClientContext context;
+    private final ClientContext context;
 
-	ClientMapReduceTaskProxy(String name, ClientContext context) {
-		super(name);
-		this.context = context;
-	}
+    ClientMapReduceTaskProxy(String name, ClientContext context) {
+        super(name);
+        this.context = context;
+    }
 
-	@Override
-	protected Map<Integer, Object> invokeTasks() throws Exception {
-		ClientInvocationService cis = context.getInvocationService();
-		MapReduceRequest<KeyIn, ValueIn, KeyOut, ValueOut> request;
-		request = new MapReduceRequest<KeyIn, ValueIn, KeyOut, ValueOut>(name, mapper, reducer);
-		return cis.invokeOnRandomTarget(request);
-	}
+    @Override
+    protected Map<Integer, Object> invokeTasks() throws Exception {
+        ClientInvocationService cis = context.getInvocationService();
+        MapReduceRequest<KeyIn, ValueIn, KeyOut, ValueOut> request;
+        request = new MapReduceRequest<KeyIn, ValueIn, KeyOut, ValueOut>(name, mapper, reducer);
+        return cis.invokeOnRandomTarget(request);
+    }
 
-	@Override
-	protected <R> MapReduceBackgroundTask<R> buildMapReduceBackgroundTask(MapReduceListener<KeyOut, ValueOut> listener) {
-		return new ClientMapReduceBackgroundTask(listener);
-	}
+    @Override
+    protected <R> MapReduceBackgroundTask<R> buildMapReduceBackgroundTask(MapReduceListener<KeyIn, ValueIn> listener) {
+        return new ClientMapReduceBackgroundTask(listener);
+    }
 
-	@Override
-	protected <R> MapReduceBackgroundTask<R> buildMapReduceBackgroundTask(Collator<KeyOut, ValueOut, R> collator, MapReduceCollatorListener<R> collatorListener) {
-		return new ClientMapReduceBackgroundTask(collator, collatorListener);
-	}
+    @Override
+    protected <R> MapReduceBackgroundTask<R> buildMapReduceBackgroundTask(Collator<KeyIn, ValueIn, R> collator, MapReduceCollatorListener<R> collatorListener) {
+        return new ClientMapReduceBackgroundTask(collator, collatorListener);
+    }
 
-	@Override
-	protected <R> void invokeAsyncTask(MapReduceBackgroundTask<R> task) {
-		ClientExecutionService es = context.getExecutionService();
-		es.execute(task);
-	}
+    @Override
+    protected <R> void invokeAsyncTask(MapReduceBackgroundTask<R> task) {
+        ClientExecutionService es = context.getExecutionService();
+        es.execute(task);
+    }
 
-	private class ClientMapReduceBackgroundTask<R> extends MapReduceBackgroundTask<R> {
-		
-		private ClientMapReduceBackgroundTask(MapReduceListener<KeyOut, ValueOut> listener) {
-			super(listener);
-		}
-		
-		private ClientMapReduceBackgroundTask(Collator<KeyOut, ValueOut, R> collator, MapReduceCollatorListener<R> collatorListener) {
-			super(collator, collatorListener);
-		}
+    private class ClientMapReduceBackgroundTask<R> extends MapReduceBackgroundTask<R> {
 
-		@Override
-		public void run() {
-			ClientInvocationService cis = context.getInvocationService();
-			MapReduceRequest<KeyIn, ValueIn, KeyOut, ValueOut> request = new MapReduceRequest<KeyIn, ValueIn, KeyOut, ValueOut>();
-			try {
-				Map<Integer, Object> responses = cis.invokeOnRandomTarget(request);
+        private ClientMapReduceBackgroundTask(MapReduceListener<KeyIn, ValueIn> listener) {
+            super(listener);
+        }
+
+        private ClientMapReduceBackgroundTask(Collator<KeyIn, ValueIn, R> collator, MapReduceCollatorListener<R> collatorListener) {
+            super(collator, collatorListener);
+        }
+
+        @Override
+        public void run() {
+            ClientInvocationService cis = context.getInvocationService();
+            try {
+                MapReduceRequest<KeyIn, ValueIn, KeyOut, ValueOut> request;
+                request = new MapReduceRequest<KeyIn, ValueIn, KeyOut, ValueOut>(name, mapper, reducer);
+                Map<Integer, Object> responses = cis.invokeOnRandomTarget(request);
                 Map groupedResponses = groupResponsesByKey(responses);
                 Map reducedResults = finalReduceStep(groupedResponses);
                 if (collator == null) {
@@ -85,9 +86,9 @@ public class ClientMapReduceTaskProxy<KeyIn, ValueIn, KeyOut, ValueOut> extends 
                     R result = collator.collate(reducedResults);
                     collatorListener.onCompletion(result);
                 }
-			} catch (Throwable t) {
-				ExceptionUtil.rethrow(t);
-			}
-		}
-	}
+            } catch (Throwable t) {
+                ExceptionUtil.rethrow(t);
+            }
+        }
+    }
 }

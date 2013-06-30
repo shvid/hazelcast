@@ -32,8 +32,8 @@ public interface MapReduceTask<KeyIn, ValueIn, KeyOut, ValueOut> {
 	
 	<R> R submit(Collator<KeyIn, ValueIn, R> collator);
 	
-	void submitAsync(MapReduceListener<KeyOut, ValueOut> listener);
+	void submitAsync(MapReduceListener<KeyIn, ValueIn> listener);
 
-	<R> void submitAsync(Collator<KeyOut, ValueOut, R> collator, MapReduceCollatorListener<R> listener);
+	<R> void submitAsync(Collator<KeyIn, ValueIn, R> collator, MapReduceCollatorListener<R> listener);
 
 }

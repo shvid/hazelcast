@@ -80,13 +80,13 @@ public abstract class AbstractMapReduceTask<KeyIn, ValueIn, KeyOut, ValueOut> im
     }
 
     @Override
-    public void submitAsync(MapReduceListener<KeyOut, ValueOut> listener) {
+    public void submitAsync(MapReduceListener<KeyIn, ValueIn> listener) {
         MapReduceBackgroundTask<?> task = buildMapReduceBackgroundTask(listener);
         invokeAsyncTask(task);
     }
 
     @Override
-    public <R> void submitAsync(Collator<KeyOut, ValueOut, R> collator, MapReduceCollatorListener<R> listener) {
+    public <R> void submitAsync(Collator<KeyIn, ValueIn, R> collator, MapReduceCollatorListener<R> listener) {
         MapReduceBackgroundTask<R> task = buildMapReduceBackgroundTask(collator, listener);
         invokeAsyncTask(task);
     }
@@ -133,25 +133,25 @@ public abstract class AbstractMapReduceTask<KeyIn, ValueIn, KeyOut, ValueOut> im
 
     protected abstract Map<Integer, Object> invokeTasks() throws Exception;
 
-    protected abstract <R> MapReduceBackgroundTask<R> buildMapReduceBackgroundTask(MapReduceListener<KeyOut, ValueOut> listener);
+    protected abstract <R> MapReduceBackgroundTask<R> buildMapReduceBackgroundTask(MapReduceListener<KeyIn, ValueIn> listener);
 
-    protected abstract <R> MapReduceBackgroundTask<R> buildMapReduceBackgroundTask(Collator<KeyOut, ValueOut, R> collator, MapReduceCollatorListener<R> collatorListener);
+    protected abstract <R> MapReduceBackgroundTask<R> buildMapReduceBackgroundTask(Collator<KeyIn, ValueIn, R> collator, MapReduceCollatorListener<R> collatorListener);
 
     protected abstract <R> void invokeAsyncTask(MapReduceBackgroundTask<R> task);
 
     protected abstract class MapReduceBackgroundTask<R> implements Runnable {
 
-        protected final MapReduceListener<KeyOut, ValueOut> listener;
+        protected final MapReduceListener<KeyIn, ValueIn> listener;
         protected final MapReduceCollatorListener<R> collatorListener;
-        protected final Collator<KeyOut, ValueOut, R> collator;
+        protected final Collator<KeyIn, ValueIn, R> collator;
 
-        protected MapReduceBackgroundTask(MapReduceListener<KeyOut, ValueOut> listener) {
+        protected MapReduceBackgroundTask(MapReduceListener<KeyIn, ValueIn> listener) {
             this.listener = listener;
             this.collator = null;
             this.collatorListener = null;
         }
 
-        protected MapReduceBackgroundTask(Collator<KeyOut, ValueOut, R> collator, MapReduceCollatorListener<R> collatorListener) {
+        protected MapReduceBackgroundTask(Collator<KeyIn, ValueIn, R> collator, MapReduceCollatorListener<R> collatorListener) {
             this.collator = collator;
             this.collatorListener = collatorListener;
             this.listener = null;

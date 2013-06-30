@@ -48,12 +48,12 @@ public class NodeMapReduceTaskImpl<KeyIn, ValueIn, KeyOut, ValueOut> extends Abs
     }
 
     @Override
-    protected <R> MapReduceBackgroundTask<R> buildMapReduceBackgroundTask(MapReduceListener<KeyOut, ValueOut> listener) {
+    protected <R> MapReduceBackgroundTask<R> buildMapReduceBackgroundTask(MapReduceListener<KeyIn, ValueIn> listener) {
         return new NodeMapReduceBackgroundTask(listener);
     }
 
     @Override
-    protected <R> MapReduceBackgroundTask<R> buildMapReduceBackgroundTask(Collator<KeyOut, ValueOut, R> collator, MapReduceCollatorListener<R> collatorListener) {
+    protected <R> MapReduceBackgroundTask<R> buildMapReduceBackgroundTask(Collator<KeyIn, ValueIn, R> collator, MapReduceCollatorListener<R> collatorListener) {
         return new NodeMapReduceBackgroundTask<R>(collator, collatorListener);
     }
 
@@ -65,11 +65,11 @@ public class NodeMapReduceTaskImpl<KeyIn, ValueIn, KeyOut, ValueOut> extends Abs
 
     private class NodeMapReduceBackgroundTask<R> extends MapReduceBackgroundTask<R> {
 
-        private NodeMapReduceBackgroundTask(MapReduceListener<KeyOut, ValueOut> listener) {
+        private NodeMapReduceBackgroundTask(MapReduceListener<KeyIn, ValueIn> listener) {
             super(listener);
         }
 
-        private NodeMapReduceBackgroundTask(Collator<KeyOut, ValueOut, R> collator, MapReduceCollatorListener<R> collatorListener) {
+        private NodeMapReduceBackgroundTask(Collator<KeyIn, ValueIn, R> collator, MapReduceCollatorListener<R> collatorListener) {
             super(collator, collatorListener);
         }
 

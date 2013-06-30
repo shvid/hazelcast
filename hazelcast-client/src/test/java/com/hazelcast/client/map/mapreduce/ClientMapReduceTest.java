@@ -18,9 +18,11 @@ package com.hazelcast.client.map.mapreduce;
 
 import static org.junit.Assert.assertEquals;
 
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Semaphore;
 
 import org.junit.After;
 import org.junit.Before;
@@ -33,6 +35,8 @@ import com.hazelcast.core.Collator;
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.core.IMap;
+import com.hazelcast.core.MapReduceCollatorListener;
+import com.hazelcast.core.MapReduceListener;
 import com.hazelcast.core.MapReduceTask;
 import com.hazelcast.map.mapreduce.Collector;
 import com.hazelcast.map.mapreduce.Mapper;
@@ -154,6 +158,158 @@ public class ClientMapReduceTest extends HazelcastTestSupport {
 
         for (int i = 0; i < 4; i++) {
             assertEquals(expectedResult, result);
+        }
+    }
+
+    @Test(timeout = 20000)
+    public void testAsyncMapper() throws Exception {
+        HazelcastInstance h1 = Hazelcast.newHazelcastInstance();
+        HazelcastInstance h2 = Hazelcast.newHazelcastInstance();
+        HazelcastInstance h3 = Hazelcast.newHazelcastInstance();
+
+        HazelcastInstance client = HazelcastClient.newHazelcastClient(null);
+        IMap<Integer, Integer> m1 = client.getMap(MAP_NAME);
+        for (int i = 0; i < 100; i++) {
+            m1.put(i, i);
+        }
+
+        final Map<String, List<Integer>> listenerResults = new HashMap<String, List<Integer>>();
+        final Semaphore semaphore = new Semaphore(1);
+        semaphore.acquire();
+
+        MapReduceTask<Integer, Integer, String, Integer> task = m1.buildMapReduceTask();
+        task.mapper(new TestMapper()).submitAsync(new MapReduceListener<String, List<Integer>>() {
+
+            @Override
+            public void onCompletion(Map<String, List<Integer>> reducedResults) {
+                listenerResults.putAll(reducedResults);
+                semaphore.release();
+            }
+        });
+
+        semaphore.acquire();
+
+        assertEquals(100, listenerResults.size());
+        for (List<Integer> value : listenerResults.values()) {
+            assertEquals(1, value.size());
+        }
+    }
+
+    @Test(timeout = 20000)
+    public void testAsyncMapperReducer() throws Exception {
+        HazelcastInstance h1 = Hazelcast.newHazelcastInstance();
+        HazelcastInstance h2 = Hazelcast.newHazelcastInstance();
+        HazelcastInstance h3 = Hazelcast.newHazelcastInstance();
+
+        HazelcastInstance client = HazelcastClient.newHazelcastClient(null);
+        IMap<Integer, Integer> m1 = client.getMap(MAP_NAME);
+        for (int i = 0; i < 100; i++) {
+            m1.put(i, i);
+        }
+
+        final Map<String, Integer> listenerResults = new HashMap<String, Integer>();
+        final Semaphore semaphore = new Semaphore(1);
+        semaphore.acquire();
+
+        MapReduceTask<Integer, Integer, String, Integer> task = m1.buildMapReduceTask();
+        task.mapper(new GroupingTestMapper()).reducer(new TestReducer()).submitAsync(new MapReduceListener<String, Integer>() {
+
+            @Override
+            public void onCompletion(Map<String, Integer> reducedResults) {
+                listenerResults.putAll(reducedResults);
+                semaphore.release();
+            }
+        });
+
+        // Precalculate results
+        int[] expectedResults = new int[4];
+        for (int i = 0; i < 100; i++) {
+            int index = i % 4;
+            expectedResults[index] += i;
+        }
+
+        semaphore.acquire();
+
+        for (int i = 0; i < 4; i++) {
+            assertEquals(expectedResults[i], (int) listenerResults.get(String.valueOf(i)));
+        }
+    }
+
+    @Test(timeout = 20000)
+    public void testAsyncMapperCollator() throws Exception {
+        HazelcastInstance h1 = Hazelcast.newHazelcastInstance();
+        HazelcastInstance h2 = Hazelcast.newHazelcastInstance();
+        HazelcastInstance h3 = Hazelcast.newHazelcastInstance();
+
+        HazelcastInstance client = HazelcastClient.newHazelcastClient(null);
+        IMap<Integer, Integer> m1 = client.getMap(MAP_NAME);
+        for (int i = 0; i < 100; i++) {
+            m1.put(i, i);
+        }
+
+        final int[] result = new int[1];
+        final Semaphore semaphore = new Semaphore(1);
+        semaphore.acquire();
+
+        MapReduceTask<Integer, Integer, String, Integer> task = m1.buildMapReduceTask();
+        task.mapper(new GroupingTestMapper()).submitAsync(new GroupingTestCollator(), new MapReduceCollatorListener<Integer>() {
+
+            @Override
+            public void onCompletion(Integer r) {
+                result[0] = r.intValue();
+                semaphore.release();
+            }
+        });
+
+        // Precalculate result
+        int expectedResult = 0;
+        for (int i = 0; i < 100; i++) {
+            expectedResult += i;
+        }
+
+        semaphore.acquire();
+
+        for (int i = 0; i < 4; i++) {
+            assertEquals(expectedResult, result[0]);
+        }
+    }
+
+    @Test(timeout = 20000)
+    public void testAsyncMapperReducerCollator() throws Exception {
+        HazelcastInstance h1 = Hazelcast.newHazelcastInstance();
+        HazelcastInstance h2 = Hazelcast.newHazelcastInstance();
+        HazelcastInstance h3 = Hazelcast.newHazelcastInstance();
+
+        HazelcastInstance client = HazelcastClient.newHazelcastClient(null);
+        IMap<Integer, Integer> m1 = client.getMap(MAP_NAME);
+        for (int i = 0; i < 100; i++) {
+            m1.put(i, i);
+        }
+
+        final int[] result = new int[1];
+        final Semaphore semaphore = new Semaphore(1);
+        semaphore.acquire();
+
+        MapReduceTask<Integer, Integer, String, Integer> task = m1.buildMapReduceTask();
+        task.mapper(new GroupingTestMapper()).reducer(new TestReducer()).submitAsync(new TestCollator(), new MapReduceCollatorListener<Integer>() {
+
+            @Override
+            public void onCompletion(Integer r) {
+                result[0] = r.intValue();
+                semaphore.release();
+            }
+        });
+
+        // Precalculate result
+        int expectedResult = 0;
+        for (int i = 0; i < 100; i++) {
+            expectedResult += i;
+        }
+
+        semaphore.acquire();
+
+        for (int i = 0; i < 4; i++) {
+            assertEquals(expectedResult, result[0]);
         }
     }
 
