@@ -458,7 +458,7 @@ public final class ClientMapProxy<K, V> extends ClientProxy implements IMap<K, V
 
     @Override
 	public <KeyOut, ValueOut> MapReduceTask<K, V, KeyOut, ValueOut> buildMapReduceTask() {
-		return new ClientMapReduceTaskImpl<K, V, KeyOut, ValueOut>(name, getContext());
+		return new ClientMapReduceTaskProxy<K, V, KeyOut, ValueOut>(name, getContext());
 	}
 
 	private Data toData(Object o) {

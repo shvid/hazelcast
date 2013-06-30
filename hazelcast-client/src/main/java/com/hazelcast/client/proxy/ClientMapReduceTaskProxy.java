@@ -28,11 +28,11 @@ import com.hazelcast.map.client.MapReduceRequest;
 import com.hazelcast.map.mapreduce.AbstractMapReduceTask;
 import com.hazelcast.util.ExceptionUtil;
 
-public class ClientMapReduceTaskImpl<KeyIn, ValueIn, KeyOut, ValueOut> extends AbstractMapReduceTask<KeyIn, ValueIn, KeyOut, ValueOut> {
+public class ClientMapReduceTaskProxy<KeyIn, ValueIn, KeyOut, ValueOut> extends AbstractMapReduceTask<KeyIn, ValueIn, KeyOut, ValueOut> {
 
 	private final ClientContext context;
 
-	ClientMapReduceTaskImpl(String name, ClientContext context) {
+	ClientMapReduceTaskProxy(String name, ClientContext context) {
 		super(name);
 		this.context = context;
 	}
@@ -76,13 +76,15 @@ public class ClientMapReduceTaskImpl<KeyIn, ValueIn, KeyOut, ValueOut> extends A
 			ClientInvocationService cis = context.getInvocationService();
 			MapReduceRequest<KeyIn, ValueIn, KeyOut, ValueOut> request = new MapReduceRequest<KeyIn, ValueIn, KeyOut, ValueOut>();
 			try {
-				Map<KeyOut, ValueOut> reducedResults = (Map<KeyOut, ValueOut>) cis.invokeOnRandomTarget(request);
-				if (collator == null) {
-					listener.onCompletion(reducedResults);
-				} else {
-					R result = collator.collate(reducedResults);
-					collatorListener.onCompletion(result);
-				}
+				Map<Integer, Object> responses = cis.invokeOnRandomTarget(request);
+                Map groupedResponses = groupResponsesByKey(responses);
+                Map reducedResults = finalReduceStep(groupedResponses);
+                if (collator == null) {
+                    listener.onCompletion(reducedResults);
+                } else {
+                    R result = collator.collate(reducedResults);
+                    collatorListener.onCompletion(result);
+                }
 			} catch (Throwable t) {
 				ExceptionUtil.rethrow(t);
 			}

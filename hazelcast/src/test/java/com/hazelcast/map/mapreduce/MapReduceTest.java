@@ -29,6 +29,7 @@ import org.junit.experimental.categories.Category;
 import org.junit.runner.RunWith;
 
 import com.hazelcast.config.Config;
+import com.hazelcast.core.Collator;
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.core.IMap;
@@ -71,10 +72,12 @@ public class MapReduceTest extends HazelcastTestSupport {
         MapReduceTask<Integer, Integer, String, Integer> task = m1.buildMapReduceTask();
         Map<String, List<Integer>> result = task.mapper(new TestMapper()).submit();
         assertEquals(100, result.size());
+        for (List<Integer> value : result.values()) {
+            assertEquals(1, value.size());
+        }
     }
 
-    @Test
-    // (timeout = 10000)
+    @Test(timeout = 20000)
     public void testMapperReducer() throws Exception {
         TestHazelcastInstanceFactory nodeFactory = createHazelcastInstanceFactory(4);
         final Config config = new Config();
@@ -100,6 +103,62 @@ public class MapReduceTest extends HazelcastTestSupport {
 
         for (int i = 0; i < 4; i++) {
             assertEquals(expectedResults[i], (int) result.get(String.valueOf(i)));
+        }
+    }
+
+    @Test(timeout = 20000)
+    public void testMapperCollator() throws Exception {
+        TestHazelcastInstanceFactory nodeFactory = createHazelcastInstanceFactory(4);
+        final Config config = new Config();
+
+        HazelcastInstance h1 = nodeFactory.newHazelcastInstance(config);
+        HazelcastInstance h2 = nodeFactory.newHazelcastInstance(config);
+        HazelcastInstance h3 = nodeFactory.newHazelcastInstance(config);
+
+        IMap<Integer, Integer> m1 = h1.getMap(MAP_NAME);
+        for (int i = 0; i < 100; i++) {
+            m1.put(i, i);
+        }
+
+        MapReduceTask<Integer, Integer, String, Integer> task = m1.buildMapReduceTask();
+        int result = task.mapper(new GroupingTestMapper()).submit(new GroupingTestCollator());
+
+        // Precalculate result
+        int expectedResult = 0;
+        for (int i = 0; i < 100; i++) {
+            expectedResult += i;
+        }
+
+        for (int i = 0; i < 4; i++) {
+            assertEquals(expectedResult, result);
+        }
+    }
+
+    @Test(timeout = 20000)
+    public void testMapperReducerCollator() throws Exception {
+        TestHazelcastInstanceFactory nodeFactory = createHazelcastInstanceFactory(4);
+        final Config config = new Config();
+
+        HazelcastInstance h1 = nodeFactory.newHazelcastInstance(config);
+        HazelcastInstance h2 = nodeFactory.newHazelcastInstance(config);
+        HazelcastInstance h3 = nodeFactory.newHazelcastInstance(config);
+
+        IMap<Integer, Integer> m1 = h1.getMap(MAP_NAME);
+        for (int i = 0; i < 100; i++) {
+            m1.put(i, i);
+        }
+
+        MapReduceTask<Integer, Integer, String, Integer> task = m1.buildMapReduceTask();
+        int result = task.mapper(new GroupingTestMapper()).reducer(new TestReducer()).submit(new TestCollator());
+
+        // Precalculate result
+        int expectedResult = 0;
+        for (int i = 0; i < 100; i++) {
+            expectedResult += i;
+        }
+
+        for (int i = 0; i < 4; i++) {
+            assertEquals(expectedResult, result);
         }
     }
 
@@ -129,6 +188,34 @@ public class MapReduceTest extends HazelcastTestSupport {
             }
             return sum;
         }
+    }
+
+    public static class GroupingTestCollator implements Collator<String, List<Integer>, Integer> {
+
+        @Override
+        public Integer collate(Map<String, List<Integer>> reducedResults) {
+            int sum = 0;
+            for (List<Integer> values : reducedResults.values()) {
+                for (Integer value : values) {
+                    sum += value;
+                }
+            }
+            return sum;
+        }
+
+    }
+
+    public static class TestCollator implements Collator<String, Integer, Integer> {
+
+        @Override
+        public Integer collate(Map<String, Integer> reducedResults) {
+            int sum = 0;
+            for (Integer value : reducedResults.values()) {
+                sum += value;
+            }
+            return sum;
+        }
+
     }
 
 }

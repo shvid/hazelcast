@@ -84,12 +84,7 @@ public class NodeMapReduceTaskImpl<KeyIn, ValueIn, KeyOut, ValueOut> extends Abs
             try {
                 Map<Integer, Object> responses = os.invokeOnAllPartitions(MapService.SERVICE_NAME, new BinaryOperationFactory(operation, nodeEngine));
                 Map groupedResponses = groupResponsesByKey(responses);
-                Map reducedResults;
-                if (reducer != null) {
-                    reducedResults = finalReduceStep(groupedResponses);
-                } else {
-                    reducedResults = groupedResponses;
-                }
+                Map reducedResults = finalReduceStep(groupedResponses);
                 if (collator == null) {
                     listener.onCompletion(reducedResults);
                 } else {

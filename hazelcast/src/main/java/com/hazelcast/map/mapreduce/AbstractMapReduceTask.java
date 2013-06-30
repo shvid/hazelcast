@@ -16,6 +16,7 @@
 
 package com.hazelcast.map.mapreduce;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -65,11 +66,7 @@ public abstract class AbstractMapReduceTask<KeyIn, ValueIn, KeyOut, ValueOut> im
         try {
             Map<Integer, Object> responses = invokeTasks();
             Map<KeyOut, List<ValueOut>> groupedResponses = groupResponsesByKey(responses);
-            if (reducer != null) {
-                return (Map<KeyIn, ValueIn>) finalReduceStep(groupedResponses);
-            } else {
-                return (Map<KeyIn, ValueIn>) groupedResponses;
-            }
+            return (Map<KeyIn, ValueIn>) finalReduceStep(groupedResponses);
         } catch (Throwable t) {
             ExceptionUtil.rethrow(t);
         }
@@ -98,7 +95,22 @@ public abstract class AbstractMapReduceTask<KeyIn, ValueIn, KeyOut, ValueOut> im
         Map<KeyOut, ValueOut> reducedResults = new HashMap<KeyOut, ValueOut>();
         // Final local reduce step
         for (Entry<KeyOut, List<ValueOut>> entry : groupedResponses.entrySet()) {
-            reducedResults.put(entry.getKey(), reducer.reduce(entry.getKey(), entry.getValue().iterator()));
+            if (reducer != null) {
+                reducedResults.put(entry.getKey(), reducer.reduce(entry.getKey(), entry.getValue().iterator()));
+            } else {
+                List results = new ArrayList(groupedResponses.size());
+                for (Object value : entry.getValue()) {
+                    // Eventually aggregate subresults to one big result list
+                    if (value instanceof List) {
+                        for (Object innerValue : ((List) value)) {
+                            results.add(innerValue);
+                        }
+                    } else {
+                        results.add(value);
+                    }
+                }
+                reducedResults.put(entry.getKey(), (ValueOut) results);
+            }
         }
         return reducedResults;
     }
