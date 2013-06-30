@@ -22,6 +22,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import com.hazelcast.core.IMap;
+import com.hazelcast.map.MapService;
 import com.hazelcast.map.RecordStore;
 import com.hazelcast.map.mapreduce.CollectorImpl;
 import com.hazelcast.map.mapreduce.Mapper;
@@ -29,7 +31,10 @@ import com.hazelcast.map.mapreduce.Reducer;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.Data;
+import com.hazelcast.spi.MapAware;
 import com.hazelcast.spi.PartitionAwareOperation;
+import com.hazelcast.spi.PartitionIdAware;
+import com.hazelcast.spi.ProxyService;
 
 public class MapReduceOperation<KeyIn, ValueIn, KeyOut, ValueOut> extends AbstractMapOperation implements PartitionAwareOperation {
 
@@ -50,6 +55,14 @@ public class MapReduceOperation<KeyIn, ValueIn, KeyOut, ValueOut> extends Abstra
     @Override
     public void run() throws Exception {
         int partitionId = getPartitionId();
+        ProxyService proxyService = getNodeEngine().getProxyService();
+        if (mapper instanceof PartitionIdAware) {
+            ((PartitionIdAware) mapper).setPartitionId(partitionId);
+        }
+        if (mapper instanceof MapAware) {
+            IMap map = (IMap) proxyService.getDistributedObject(MapService.SERVICE_NAME, name);
+            ((MapAware) mapper).setMap(map);
+        }
         RecordStore recordStore = mapService.getRecordStore(partitionId, name);
         CollectorImpl<KeyOut, ValueOut> collector = new CollectorImpl<KeyOut, ValueOut>();
         for (Entry<Data, Data> entry : recordStore.entrySetData()) {
@@ -58,6 +71,13 @@ public class MapReduceOperation<KeyIn, ValueIn, KeyOut, ValueOut> extends Abstra
             mapper.map(key, value, collector);
         }
         if (reducer != null) {
+            if (reducer instanceof PartitionIdAware) {
+                ((PartitionIdAware) reducer).setPartitionId(partitionId);
+            }
+            if (reducer instanceof MapAware) {
+                IMap map = (IMap) proxyService.getDistributedObject(MapService.SERVICE_NAME, name);
+                ((MapAware) reducer).setMap(map);
+            }
             Map<KeyOut, ValueOut> reducedResults = new HashMap<KeyOut, ValueOut>(collector.emitted.keySet().size());
             for (Entry<KeyOut, List<ValueOut>> entry : collector.emitted.entrySet()) {
                 reducedResults.put(entry.getKey(), reducer.reduce(entry.getKey(), entry.getValue().iterator()));
