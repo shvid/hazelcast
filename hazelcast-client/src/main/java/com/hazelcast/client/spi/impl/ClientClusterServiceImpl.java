@@ -477,7 +477,7 @@ public final class ClientClusterServiceImpl implements ClientClusterService {
                     e.printStackTrace();
                 }
             }
-            if (attempt++ >= connectionAttemptLimit) {
+            if (connectionAttemptLimit > 0 && attempt++ >= connectionAttemptLimit) {
                 break;
             }
             final long remainingTime = nextTry - Clock.currentTimeMillis();
