@@ -95,7 +95,7 @@ public class PartitionStateGeneratorTest {
     public void testConfigCustomPartitionStateGenerator() throws Exception {
         PartitionGroupConfig config = new PartitionGroupConfig();
         config.setEnabled(true);
-        config.setGroupType(PartitionGroupConfig.MemberGroupType.CUSTOM);
+        config.setGroupType(PartitionGroupConfig.MemberGroupType.XML);
         MemberGroupConfig mgCfg0 = new MemberGroupConfig();
         MemberGroupConfig mgCfg1 = new MemberGroupConfig();
         MemberGroupConfig mgCfg2 = new MemberGroupConfig();
@@ -137,7 +137,7 @@ public class PartitionStateGeneratorTest {
         Config config = new ClasspathXmlConfig("hazelcast-fullconfig.xml");
         PartitionGroupConfig partitionGroupConfig = config.getPartitionGroupConfig();
         Assert.assertFalse(partitionGroupConfig.isEnabled());
-        Assert.assertEquals(PartitionGroupConfig.MemberGroupType.CUSTOM, partitionGroupConfig.getGroupType());
+        Assert.assertEquals(PartitionGroupConfig.MemberGroupType.XML, partitionGroupConfig.getGroupType());
         Assert.assertEquals(2, partitionGroupConfig.getMemberGroupConfigs().size());
     }
 

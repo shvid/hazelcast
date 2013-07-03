@@ -32,6 +32,7 @@ import com.hazelcast.spi.annotation.PrivateApi;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.spi.impl.ResponseHandlerFactory;
 import com.hazelcast.util.Clock;
+import com.hazelcast.util.ExceptionUtil;
 import com.hazelcast.util.scheduler.EntryTaskScheduler;
 import com.hazelcast.util.scheduler.EntryTaskSchedulerFactory;
 import com.hazelcast.util.scheduler.ScheduledEntry;
@@ -103,7 +104,7 @@ public class PartitionServiceImpl implements PartitionService, ManagedService,
             replicaVersions[i] = new PartitionReplicaVersions(i);
         }
 
-        memberGroupFactory = newMemberGroupFactory(node.getConfig().getPartitionGroupConfig());
+        memberGroupFactory = newMemberGroupFactory(node.getConfig().getPartitionGroupConfig(), node.getConfigClassLoader());
         partitionStateGenerator = new PartitionStateGeneratorImpl();
 
         partitionMigrationInterval = node.groupProperties.PARTITION_MIGRATION_INTERVAL.getInteger() * 1000;
@@ -1324,15 +1325,26 @@ public class PartitionServiceImpl implements PartitionService, ManagedService,
         }
     }
 
-    private static MemberGroupFactory newMemberGroupFactory(PartitionGroupConfig partitionGroupConfig) {
+    private static MemberGroupFactory newMemberGroupFactory(PartitionGroupConfig partitionGroupConfig, ClassLoader classLoader) {
         if (partitionGroupConfig == null || !partitionGroupConfig.isEnabled()) {
             return new SingleMemberGroupFactory();
         }
         switch (partitionGroupConfig.getGroupType()) {
             case HOST_AWARE:
                 return new HostAwareMemberGroupFactory();
-            case CUSTOM:
+            case XML:
                 return new ConfigMemberGroupFactory(partitionGroupConfig.getMemberGroupConfigs());
+            case CUSTOM:
+                String memberGroupFactoryClass = partitionGroupConfig.getMemberGroupFactoryClass();
+                if (memberGroupFactoryClass == null) {
+                    throw new RuntimeException("Illegal memberGroupFactoryClass definition");
+                }
+                try {
+                    Class<?> factoryClass = classLoader.loadClass( memberGroupFactoryClass );
+                    return (MemberGroupFactory) factoryClass.newInstance();
+                } catch (Exception t) {
+                    ExceptionUtil.rethrow( t );
+                }
             default:
                 return new SingleMemberGroupFactory();
         }

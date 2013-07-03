@@ -404,7 +404,7 @@ public class TestFullApplicationContext {
     public void testPartitionGroupConfig() {
         PartitionGroupConfig pgc = config.getPartitionGroupConfig();
         assertTrue(pgc.isEnabled());
-        assertEquals(PartitionGroupConfig.MemberGroupType.CUSTOM, pgc.getGroupType());
+        assertEquals(PartitionGroupConfig.MemberGroupType.XML, pgc.getGroupType());
         assertEquals(2, pgc.getMemberGroupConfigs().size());
         Iterator<MemberGroupConfig> iter = pgc.getMemberGroupConfigs().iterator();
         while (iter.hasNext()) {

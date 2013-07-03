@@ -329,7 +329,7 @@ public class ClusterJoinTest {
         Config config1 = new Config();
         config1.getNetworkConfig().getJoin().getMulticastConfig().setEnabled(false);
         config1.getNetworkConfig().getJoin().getTcpIpConfig().setEnabled(true).addMember("127.0.0.1");
-        config1.getPartitionGroupConfig().setEnabled(true).setGroupType(PartitionGroupConfig.MemberGroupType.CUSTOM);
+        config1.getPartitionGroupConfig().setEnabled(true).setGroupType(PartitionGroupConfig.MemberGroupType.XML);
         HazelcastInstance h1 = Hazelcast.newHazelcastInstance(config1);
 
         Config config2 = new Config();

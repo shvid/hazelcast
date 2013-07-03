@@ -29,8 +29,10 @@ public class PartitionGroupConfig {
 
     private final List<MemberGroupConfig> memberGroupConfigs = new LinkedList<MemberGroupConfig>();
 
+    private String memberGroupFactoryClass = null;
+    
     public enum MemberGroupType {
-        HOST_AWARE, CUSTOM
+        HOST_AWARE, XML, CUSTOM
     }
 
     public boolean isEnabled() {
@@ -71,6 +73,16 @@ public class PartitionGroupConfig {
         return this;
     }
 
+    public String getMemberGroupFactoryClass()
+    {
+        return memberGroupFactoryClass;
+    }
+
+    public void setMemberGroupFactoryClass( String memberGroupFactoryClass )
+    {
+        this.memberGroupFactoryClass = memberGroupFactoryClass;
+    }
+
     @Override
     public String toString() {
         final StringBuilder sb = new StringBuilder();
@@ -78,6 +90,7 @@ public class PartitionGroupConfig {
         sb.append("{enabled=").append(enabled);
         sb.append(", groupType=").append(groupType);
         sb.append(", memberGroupConfigs=").append(memberGroupConfigs);
+        sb.append(", memberGroupFactoryClass=").append(memberGroupFactoryClass);
         sb.append('}');
         return sb.toString();
     }
