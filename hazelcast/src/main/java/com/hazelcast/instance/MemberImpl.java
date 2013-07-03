@@ -126,16 +126,16 @@ public final class MemberImpl implements Member, HazelcastInstanceAware, Identif
 			NodeEngineImpl nodeEngine = instance.node.nodeEngine;
 			OperationService os = nodeEngine.getOperationService();
 			MemberAttributeChangedOperation operation;
-			if (value != null) {
-				operation = new MemberAttributeChangedOperation(MapOperationType.PUT, key, value);
-			} else {
-				operation = new MemberAttributeChangedOperation(MapOperationType.REMOVE, key, null);
-			}
-			String uuid = nodeEngine.getLocalMember().getUuid();
-			operation.setCallerUuid(uuid).setNodeEngine(nodeEngine);
 			try {
 				for (Member m : nodeEngine.getClusterService().getMembers()) {
 					MemberImpl member = (MemberImpl) m;
+		            if (value != null) {
+		                operation = new MemberAttributeChangedOperation(MapOperationType.PUT, key, value);
+		            } else {
+		                operation = new MemberAttributeChangedOperation(MapOperationType.REMOVE, key, null);
+		            }
+		            String uuid = nodeEngine.getLocalMember().getUuid();
+		            operation.setCallerUuid(uuid).setNodeEngine(nodeEngine);
 					InvocationBuilder inv = os.createInvocationBuilder(ClusterServiceImpl.SERVICE_NAME, operation, member.getAddress());
 					inv.build().invoke();
 				}

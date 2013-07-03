@@ -40,15 +40,15 @@ public class MemberInfo implements DataSerializable {
         this.address = address;
     }
 
-    public MemberInfo(Address address, String uuid) {
+    public MemberInfo(Address address, String uuid, Map<String, Object> attributes) {
         super();
         this.address = address;
         this.uuid = uuid;
+        this.attributes = new HashMap<String, Object>(attributes);
     }
 
     public MemberInfo(MemberImpl member) {
-    	this(member.getAddress(), member.getUuid());
-    	attributes = member.getAttributes();
+    	this(member.getAddress(), member.getUuid(), member.getAttributes());
     }
     
     public void readData(ObjectDataInput in) throws IOException {

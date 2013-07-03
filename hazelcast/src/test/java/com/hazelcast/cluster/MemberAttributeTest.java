@@ -18,6 +18,9 @@ package com.hazelcast.cluster;
 
 import static org.junit.Assert.*;
 
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicReference;
+
 import org.junit.After;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -29,216 +32,307 @@ import com.hazelcast.config.MemberAttributeConfig;
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.core.Member;
+import com.hazelcast.core.MemberAttributeEvent;
+import com.hazelcast.core.MembershipEvent;
+import com.hazelcast.core.MembershipListener;
 import com.hazelcast.test.HazelcastJUnit4ClassRunner;
 import com.hazelcast.test.annotation.SerialTest;
 
-@RunWith(HazelcastJUnit4ClassRunner.class)
-@Category(SerialTest.class)
-public class MemberAttributeTest {
+@RunWith( HazelcastJUnit4ClassRunner.class )
+@Category( SerialTest.class )
+public class MemberAttributeTest
+{
 
     @BeforeClass
-    public static void init() throws Exception {
+    public static void init()
+        throws Exception
+    {
         Hazelcast.shutdownAll();
     }
 
     @After
-    public void cleanup() throws Exception {
+    public void cleanup()
+        throws Exception
+    {
         Hazelcast.shutdownAll();
     }
 
-    @Test(timeout = 120000)
-    public void testConfigAttributes() throws Exception {
+    @Test( timeout = 120000 )
+    public void testConfigAttributes()
+        throws Exception
+    {
         Config c = new Config();
-        c.getNetworkConfig().getJoin().getMulticastConfig().setEnabled(false);
-        c.getNetworkConfig().getJoin().getTcpIpConfig().setEnabled(true);
-        c.getNetworkConfig().getInterfaces().setEnabled(true);
-        c.getNetworkConfig().getJoin().getTcpIpConfig().addMember("127.0.0.1");
-        c.getNetworkConfig().getInterfaces().addInterface("127.0.0.1");
+        c.getNetworkConfig().getJoin().getMulticastConfig().setEnabled( false );
+        c.getNetworkConfig().getJoin().getTcpIpConfig().setEnabled( true );
+        c.getNetworkConfig().getInterfaces().setEnabled( true );
+        c.getNetworkConfig().getJoin().getTcpIpConfig().addMember( "127.0.0.1" );
+        c.getNetworkConfig().getInterfaces().addInterface( "127.0.0.1" );
 
         MemberAttributeConfig memberAttributeConfig = c.getMemberAttributeConfig();
-        memberAttributeConfig.setAttribute("Test", Integer.valueOf(123));
-        
-        HazelcastInstance h1 = Hazelcast.newHazelcastInstance(c);
+        memberAttributeConfig.setAttribute( "Test", Integer.valueOf( 123 ) );
+
+        HazelcastInstance h1 = Hazelcast.newHazelcastInstance( c );
         Member m1 = h1.getCluster().getLocalMember();
-    	assertEquals(123, m1.getAttribute("Test"));
-        
-        HazelcastInstance h2 = Hazelcast.newHazelcastInstance(c);
+        assertEquals( 123, m1.getAttribute( "Test" ) );
+
+        HazelcastInstance h2 = Hazelcast.newHazelcastInstance( c );
         Member m2 = h2.getCluster().getLocalMember();
-    	assertEquals(123, m2.getAttribute("Test"));
+        assertEquals( 123, m2.getAttribute( "Test" ) );
 
-        assertEquals(2, h2.getCluster().getMembers().size());
-        
+        assertEquals( 2, h2.getCluster().getMembers().size() );
+
         Member member = null;
-        for (Member m : h2.getCluster().getMembers()) {
-        	if (m == h2.getCluster().getLocalMember())
-        		continue;
-        	member = m;
+        for ( Member m : h2.getCluster().getMembers() )
+        {
+            if ( m == h2.getCluster().getLocalMember() )
+                continue;
+            member = m;
         }
 
-        assertNotNull(member);
-        assertEquals(m1, member);
-    	assertNotNull(member.getAttribute("Test"));
-    	assertEquals(123, member.getAttribute("Test"));
-        
+        assertNotNull( member );
+        assertEquals( m1, member );
+        assertNotNull( member.getAttribute( "Test" ) );
+        assertEquals( 123, member.getAttribute( "Test" ) );
+
         h1.getLifecycleService().shutdown();
         h2.getLifecycleService().shutdown();
     }
 
-    @Test(timeout = 120000)
-    public void testPresharedAttributes() throws Exception {
+    @Test( timeout = 120000 )
+    public void testPresharedAttributes()
+        throws Exception
+    {
         Config c = new Config();
-        c.getNetworkConfig().getJoin().getMulticastConfig().setEnabled(false);
-        c.getNetworkConfig().getJoin().getTcpIpConfig().setEnabled(true);
-        c.getNetworkConfig().getInterfaces().setEnabled(true);
-        c.getNetworkConfig().getJoin().getTcpIpConfig().addMember("127.0.0.1");
-        c.getNetworkConfig().getInterfaces().addInterface("127.0.0.1");
+        c.getNetworkConfig().getJoin().getMulticastConfig().setEnabled( false );
+        c.getNetworkConfig().getJoin().getTcpIpConfig().setEnabled( true );
+        c.getNetworkConfig().getInterfaces().setEnabled( true );
+        c.getNetworkConfig().getJoin().getTcpIpConfig().addMember( "127.0.0.1" );
+        c.getNetworkConfig().getInterfaces().addInterface( "127.0.0.1" );
 
-        HazelcastInstance h1 = Hazelcast.newHazelcastInstance(c);
+        HazelcastInstance h1 = Hazelcast.newHazelcastInstance( c );
         Member m1 = h1.getCluster().getLocalMember();
-        m1.setAttribute("Test", Integer.valueOf(123));
-        
-        HazelcastInstance h2 = Hazelcast.newHazelcastInstance(c);
-        assertEquals(2, h2.getCluster().getMembers().size());
-        
+        m1.setAttribute( "Test", Integer.valueOf( 123 ) );
+
+        HazelcastInstance h2 = Hazelcast.newHazelcastInstance( c );
+        assertEquals( 2, h2.getCluster().getMembers().size() );
+
         Member member = null;
-        for (Member m : h2.getCluster().getMembers()) {
-        	if (m == h2.getCluster().getLocalMember())
-        		continue;
-        	member = m;
+        for ( Member m : h2.getCluster().getMembers() )
+        {
+            if ( m == h2.getCluster().getLocalMember() )
+                continue;
+            member = m;
         }
 
-        assertNotNull(member);
-        assertEquals(m1, member);
-    	assertNotNull(member.getAttribute("Test"));
-    	assertEquals(123, member.getAttribute("Test"));
-        
+        assertNotNull( member );
+        assertEquals( m1, member );
+        assertNotNull( member.getAttribute( "Test" ) );
+        assertEquals( 123, member.getAttribute( "Test" ) );
+
         h1.getLifecycleService().shutdown();
         h2.getLifecycleService().shutdown();
     }
 
-    @Test(timeout = 120000)
-    public void testAddAttributes() throws Exception {
+    @Test( timeout = 120000 )
+    public void testPresharedAttributesWithListener()
+        throws Exception
+    {
         Config c = new Config();
-        c.getNetworkConfig().getJoin().getMulticastConfig().setEnabled(false);
-        c.getNetworkConfig().getJoin().getTcpIpConfig().setEnabled(true);
-        c.getNetworkConfig().getInterfaces().setEnabled(true);
-        c.getNetworkConfig().getJoin().getTcpIpConfig().addMember("127.0.0.1");
-        c.getNetworkConfig().getInterfaces().addInterface("127.0.0.1");
+        c.getNetworkConfig().getJoin().getMulticastConfig().setEnabled( false );
+        c.getNetworkConfig().getJoin().getTcpIpConfig().setEnabled( true );
+        c.getNetworkConfig().getInterfaces().setEnabled( true );
+        c.getNetworkConfig().getJoin().getTcpIpConfig().addMember( "127.0.0.1" );
+        c.getNetworkConfig().getInterfaces().addInterface( "127.0.0.1" );
 
-        HazelcastInstance h1 = Hazelcast.newHazelcastInstance(c);
-        Member m1 = h1.getCluster().getLocalMember();
-        m1.setAttribute("Test", Integer.valueOf(123));
-        
-        HazelcastInstance h2 = Hazelcast.newHazelcastInstance(c);
-        assertEquals(2, h2.getCluster().getMembers().size());
-        
+        final Semaphore semaphore = new Semaphore( 1 );
+        final AtomicReference<Integer> attribute = new AtomicReference<Integer>();
+        HazelcastInstance h1 = Hazelcast.newHazelcastInstance( c );
+        h1.getCluster().addMembershipListener( new MembershipListener()
+        {
+
+            @Override
+            public void memberRemoved( MembershipEvent membershipEvent )
+            {
+            }
+
+            @Override
+            public void memberAttributeChanged( MemberAttributeEvent memberAttributeEvent )
+            {
+            }
+
+            @Override
+            public void memberAdded( MembershipEvent membershipEvent )
+            {
+                attribute.set( (Integer) membershipEvent.getMember().getAttribute( "Test" ) );
+                semaphore.release();
+            }
+        } );
+
+        semaphore.acquire();
+
+        c.getMemberAttributeConfig().setAttribute( "Test", Integer.valueOf( 123 ) );
+        HazelcastInstance h2 = Hazelcast.newHazelcastInstance( c );
+        Member m2 = h2.getCluster().getLocalMember();
+        assertEquals( 2, h2.getCluster().getMembers().size() );
+
+        semaphore.acquire();
+
         Member member = null;
-        for (Member m : h2.getCluster().getMembers()) {
-        	if (m == h2.getCluster().getLocalMember())
-        		continue;
-        	member = m;
+        for ( Member m : h1.getCluster().getMembers() )
+        {
+            if ( m == h1.getCluster().getLocalMember() )
+                continue;
+            member = m;
         }
 
-        assertNotNull(member);
-        assertEquals(m1, member);
-    	assertNotNull(member.getAttribute("Test"));
-    	assertEquals(123, member.getAttribute("Test"));
-        
-        m1.setAttribute("Test2", Integer.valueOf(321));
-        
+        assertNotNull( member );
+        assertEquals( m2, member );
+        assertNotNull( member.getAttribute( "Test" ) );
+        assertEquals( 123, member.getAttribute( "Test" ) );
+        assertNotNull( attribute.get() );
+        assertEquals( 123, (int) attribute.get() );
+
+        h1.getLifecycleService().shutdown();
+        h2.getLifecycleService().shutdown();
+    }
+
+    @Test( timeout = 120000 )
+    public void testAddAttributes()
+        throws Exception
+    {
+        Config c = new Config();
+        c.getNetworkConfig().getJoin().getMulticastConfig().setEnabled( false );
+        c.getNetworkConfig().getJoin().getTcpIpConfig().setEnabled( true );
+        c.getNetworkConfig().getInterfaces().setEnabled( true );
+        c.getNetworkConfig().getJoin().getTcpIpConfig().addMember( "127.0.0.1" );
+        c.getNetworkConfig().getInterfaces().addInterface( "127.0.0.1" );
+
+        HazelcastInstance h1 = Hazelcast.newHazelcastInstance( c );
+        Member m1 = h1.getCluster().getLocalMember();
+        m1.setAttribute( "Test", Integer.valueOf( 123 ) );
+
+        HazelcastInstance h2 = Hazelcast.newHazelcastInstance( c );
+        assertEquals( 2, h2.getCluster().getMembers().size() );
+
+        Member member = null;
+        for ( Member m : h2.getCluster().getMembers() )
+        {
+            if ( m == h2.getCluster().getLocalMember() )
+                continue;
+            member = m;
+        }
+
+        assertNotNull( member );
+        assertEquals( m1, member );
+        assertNotNull( member.getAttribute( "Test" ) );
+        assertEquals( 123, member.getAttribute( "Test" ) );
+
+        m1.setAttribute( "Test2", Integer.valueOf( 321 ) );
+
         // Force sleep to distribute value
         sleep();
-    
-        assertNotNull(member.getAttribute("Test2"));
-    	assertEquals(321, member.getAttribute("Test2"));
-        
+
+        assertNotNull( member.getAttribute( "Test2" ) );
+        assertEquals( 321, member.getAttribute( "Test2" ) );
+
         h1.getLifecycleService().shutdown();
         h2.getLifecycleService().shutdown();
     }
 
-    @Test(timeout = 120000)
-    public void testChangeAttributes() throws Exception {
+    @Test( timeout = 120000 )
+    public void testChangeAttributes()
+        throws Exception
+    {
         Config c = new Config();
-        c.getNetworkConfig().getJoin().getMulticastConfig().setEnabled(false);
-        c.getNetworkConfig().getJoin().getTcpIpConfig().setEnabled(true);
-        c.getNetworkConfig().getInterfaces().setEnabled(true);
-        c.getNetworkConfig().getJoin().getTcpIpConfig().addMember("127.0.0.1");
-        c.getNetworkConfig().getInterfaces().addInterface("127.0.0.1");
+        c.getNetworkConfig().getJoin().getMulticastConfig().setEnabled( false );
+        c.getNetworkConfig().getJoin().getTcpIpConfig().setEnabled( true );
+        c.getNetworkConfig().getInterfaces().setEnabled( true );
+        c.getNetworkConfig().getJoin().getTcpIpConfig().addMember( "127.0.0.1" );
+        c.getNetworkConfig().getInterfaces().addInterface( "127.0.0.1" );
 
-        HazelcastInstance h1 = Hazelcast.newHazelcastInstance(c);
+        HazelcastInstance h1 = Hazelcast.newHazelcastInstance( c );
         Member m1 = h1.getCluster().getLocalMember();
-        m1.setAttribute("Test", Integer.valueOf(123));
-        
-        HazelcastInstance h2 = Hazelcast.newHazelcastInstance(c);
-        assertEquals(2, h2.getCluster().getMembers().size());
-        
+        m1.setAttribute( "Test", Integer.valueOf( 123 ) );
+
+        HazelcastInstance h2 = Hazelcast.newHazelcastInstance( c );
+        assertEquals( 2, h2.getCluster().getMembers().size() );
+
         Member member = null;
-        for (Member m : h2.getCluster().getMembers()) {
-        	if (m == h2.getCluster().getLocalMember())
-        		continue;
-        	member = m;
+        for ( Member m : h2.getCluster().getMembers() )
+        {
+            if ( m == h2.getCluster().getLocalMember() )
+                continue;
+            member = m;
         }
 
-        assertNotNull(member);
-        assertEquals(m1, member);
-    	assertNotNull(member.getAttribute("Test"));
-    	assertEquals(123, member.getAttribute("Test"));
-        
-        m1.setAttribute("Test", Integer.valueOf(321));
-        
+        assertNotNull( member );
+        assertEquals( m1, member );
+        assertNotNull( member.getAttribute( "Test" ) );
+        assertEquals( 123, member.getAttribute( "Test" ) );
+
+        m1.setAttribute( "Test", Integer.valueOf( 321 ) );
+
         // Force sleep to distribute value
         sleep();
-        
-        assertNotNull(member.getAttribute("Test"));
-    	assertEquals(321, member.getAttribute("Test"));
-        
+
+        assertNotNull( member.getAttribute( "Test" ) );
+        assertEquals( 321, member.getAttribute( "Test" ) );
+
         h1.getLifecycleService().shutdown();
         h2.getLifecycleService().shutdown();
     }
-    @Test(timeout = 120000)
-    public void testRemoveAttributes() throws Exception {
-        Config c = new Config();
-        c.getNetworkConfig().getJoin().getMulticastConfig().setEnabled(false);
-        c.getNetworkConfig().getJoin().getTcpIpConfig().setEnabled(true);
-        c.getNetworkConfig().getInterfaces().setEnabled(true);
-        c.getNetworkConfig().getJoin().getTcpIpConfig().addMember("127.0.0.1");
-        c.getNetworkConfig().getInterfaces().addInterface("127.0.0.1");
 
-        HazelcastInstance h1 = Hazelcast.newHazelcastInstance(c);
+    @Test( timeout = 120000 )
+    public void testRemoveAttributes()
+        throws Exception
+    {
+        Config c = new Config();
+        c.getNetworkConfig().getJoin().getMulticastConfig().setEnabled( false );
+        c.getNetworkConfig().getJoin().getTcpIpConfig().setEnabled( true );
+        c.getNetworkConfig().getInterfaces().setEnabled( true );
+        c.getNetworkConfig().getJoin().getTcpIpConfig().addMember( "127.0.0.1" );
+        c.getNetworkConfig().getInterfaces().addInterface( "127.0.0.1" );
+
+        HazelcastInstance h1 = Hazelcast.newHazelcastInstance( c );
         Member m1 = h1.getCluster().getLocalMember();
-        m1.setAttribute("Test", Integer.valueOf(123));
-        
-        HazelcastInstance h2 = Hazelcast.newHazelcastInstance(c);
-        assertEquals(2, h2.getCluster().getMembers().size());
-        
+        m1.setAttribute( "Test", Integer.valueOf( 123 ) );
+
+        HazelcastInstance h2 = Hazelcast.newHazelcastInstance( c );
+        assertEquals( 2, h2.getCluster().getMembers().size() );
+
         Member member = null;
-        for (Member m : h2.getCluster().getMembers()) {
-        	if (m == h2.getCluster().getLocalMember())
-        		continue;
-        	member = m;
+        for ( Member m : h2.getCluster().getMembers() )
+        {
+            if ( m == h2.getCluster().getLocalMember() )
+                continue;
+            member = m;
         }
 
-        assertNotNull(member);
-        assertEquals(m1, member);
-    	assertNotNull(member.getAttribute("Test"));
-    	assertEquals(123, member.getAttribute("Test"));
-        
-        m1.setAttribute("Test", null);
-        
+        assertNotNull( member );
+        assertEquals( m1, member );
+        assertNotNull( member.getAttribute( "Test" ) );
+        assertEquals( 123, member.getAttribute( "Test" ) );
+
+        m1.setAttribute( "Test", null );
+
         // Force sleep to distribute value
         sleep();
-        
-        assertNull(member.getAttribute("Test"));
-        
+
+        assertNull( member.getAttribute( "Test" ) );
+
         h1.getLifecycleService().shutdown();
         h2.getLifecycleService().shutdown();
     }
 
-    private void sleep() {
-    	try {
-			Thread.sleep(1000);
-		} catch (InterruptedException e) {
-		}
+    private void sleep()
+    {
+        try
+        {
+            Thread.sleep( 1000 );
+        }
+        catch ( InterruptedException e )
+        {
+        }
     }
-    
+
 }

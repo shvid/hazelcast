@@ -465,7 +465,7 @@ public final class ClusterServiceImpl implements ClusterService, ConnectionListe
                     sendMasterAnswer(joinMessage);
                 }
                 if (node.isMaster() && node.joined() && node.isActive()) {
-                    final MemberInfo newMemberInfo = new MemberInfo(joinMessage.getAddress(), joinMessage.getUuid());
+                    final MemberInfo newMemberInfo = new MemberInfo(joinMessage.getAddress(), joinMessage.getUuid(), joinMessage.getAttributes());
                     if (node.securityContext != null && !setJoins.contains(newMemberInfo)) {
                         final Credentials cr = joinMessage.getCredentials();
                         ILogger securityLogger = node.loggingService.getLogger("com.hazelcast.security");
@@ -673,7 +673,7 @@ public final class ClusterServiceImpl implements ClusterService, ConnectionListe
     private static Collection<MemberInfo> createMemberInfos(Collection<MemberImpl> members, boolean joinOperation) {
         final Collection<MemberInfo> memberInfos = new LinkedList<MemberInfo>();
         for (MemberImpl member : members) {
-        	MemberInfo mi = joinOperation ? new MemberInfo(member) : new MemberInfo(member.getAddress(), member.getUuid());
+        	MemberInfo mi = joinOperation ? new MemberInfo(member) : new MemberInfo(member.getAddress(), member.getUuid(), member.getAttributes());
             memberInfos.add(mi);
         }
         return memberInfos;

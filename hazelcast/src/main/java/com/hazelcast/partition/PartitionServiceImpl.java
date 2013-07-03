@@ -986,28 +986,32 @@ public class PartitionServiceImpl implements PartitionService, ManagedService,
                     if (!initialized) {
                         return;
                     }
-                    for (final PartitionImpl newPartition : newState) {
-                        final int partitionId = newPartition.getPartitionId();
-                        final PartitionImpl currentPartition = partitions[partitionId];
-                        if (currentPartition.getOwner() == null) {  // assign new owner for lost partition
-                            lostCount++;
-                            final Address owner = newPartition.getOwner();
-                            currentPartition.setOwner(owner);
-                            MigrationInfo migrationInfo = new MigrationInfo(partitionId, null, owner);
-                            sendMigrationEvent(migrationInfo, MigrationStatus.STARTED);
-                            sendMigrationEvent(migrationInfo, MigrationStatus.COMPLETED);
-                        }
-                        if (migratingPartitions.contains(partitionId)) {
-                            backupTasks.put(partitionId, new BackupMigrationTask(partitionId, newPartition));
-                        } else {
-                            currentPartition.setPartitionInfo(newPartition);
+                    if (newState != null && partitions != null && partitions.length > 0) {
+                        for (final PartitionImpl newPartition : newState) {
+                            final int partitionId = newPartition.getPartitionId();
+                            final PartitionImpl currentPartition = partitions[partitionId];
+                            if (currentPartition.getOwner() == null) {  // assign new owner for lost partition
+                                lostCount++;
+                                final Address owner = newPartition.getOwner();
+                                currentPartition.setOwner(owner);
+                                MigrationInfo migrationInfo = new MigrationInfo(partitionId, null, owner);
+                                sendMigrationEvent(migrationInfo, MigrationStatus.STARTED);
+                                sendMigrationEvent(migrationInfo, MigrationStatus.COMPLETED);
+                            }
+                            if (migratingPartitions.contains(partitionId)) {
+                                backupTasks.put(partitionId, new BackupMigrationTask(partitionId, newPartition));
+                            } else {
+                                currentPartition.setPartitionInfo(newPartition);
+                            }
                         }
                     }
                     sendPartitionRuntimeState();
                 } finally {
                     lock.unlock();
-                    for (int i = 0; i < partitionCount; i++) {
-                        newState[i] = null; // help GC
+                    if (newState != null) {
+                        for (int i = 0; i < partitionCount; i++) {
+                            newState[i] = null; // help GC
+                        }
                     }
                 }
 

@@ -16,16 +16,20 @@
 
 package com.hazelcast.cluster;
 
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Map.Entry;
+
 import com.hazelcast.nio.Address;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.DataSerializable;
 import com.hazelcast.security.Credentials;
 
-import java.io.IOException;
-
 public class JoinRequest extends JoinMessage implements DataSerializable {
 
+    private final Map<String, Object> attributes = new HashMap<String, Object>();
     private Credentials credentials;
     private int tryCount = 0;
 
@@ -33,11 +37,17 @@ public class JoinRequest extends JoinMessage implements DataSerializable {
         super();
     }
 
-    public JoinRequest(byte packetVersion, int buildNumber, Address address, String uuid, ConfigCheck config,
-                       Credentials credentials, int memberCount, int tryCount) {
+    public JoinRequest(byte packetVersion, int buildNumber, Address address, String uuid, Map<String, Object> attributes,
+                       ConfigCheck config, Credentials credentials, int memberCount, int tryCount) {
         super(packetVersion, buildNumber, address, uuid, config, memberCount);
         this.credentials = credentials;
         this.tryCount = tryCount;
+        if (attributes != null) this.attributes.putAll( attributes );
+    }
+
+    public Map<String, Object> getAttributes()
+    {
+        return attributes;
     }
 
     public Credentials getCredentials() {
@@ -59,12 +69,23 @@ public class JoinRequest extends JoinMessage implements DataSerializable {
             credentials.setEndpoint(getAddress().getHost());
         }
         tryCount = in.readInt();
+        int size = in.readInt();
+        for (int i = 0; i < size; i++) {
+            String key = in.readUTF();
+            Object value = in.readObject();
+            attributes.put(key, value);
+        }
     }
 
     public void writeData(ObjectDataOutput out) throws IOException {
         super.writeData(out);
         out.writeObject(credentials);
         out.writeInt(tryCount);
+        out.writeInt(attributes.size());
+        for (Entry<String, Object> entry : attributes.entrySet()) {
+            out.writeUTF(entry.getKey());
+            out.writeObject(entry.getValue());
+        }
     }
 
     @Override
