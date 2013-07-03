@@ -32,6 +32,7 @@ import com.hazelcast.cluster.client.ClientMemberAttributeChangedEvent;
 import com.hazelcast.cluster.client.ClientMembershipEvent;
 import com.hazelcast.core.HazelcastException;
 import com.hazelcast.core.HazelcastInstanceNotActiveException;
+import com.hazelcast.core.MemberAttributeEvent;
 import com.hazelcast.core.MembershipEvent;
 import com.hazelcast.core.MembershipListener;
 import com.hazelcast.instance.MemberImpl;
