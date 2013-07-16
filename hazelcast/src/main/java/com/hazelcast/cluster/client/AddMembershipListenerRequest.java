@@ -17,6 +17,8 @@
 package com.hazelcast.cluster.client;
 
 import com.hazelcast.client.CallableClientRequest;
+import com.hazelcast.client.ClientEndpoint;
+import com.hazelcast.client.ClientEngine;
 import com.hazelcast.cluster.ClusterDataSerializerHook;
 import com.hazelcast.cluster.ClusterServiceImpl;
 import com.hazelcast.core.MemberAttributeEvent;
@@ -30,7 +32,6 @@ import com.hazelcast.nio.serialization.Data;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import com.hazelcast.nio.serialization.SerializationService;
 import com.hazelcast.spi.impl.SerializableCollection;
-import com.hazelcast.util.MutableString;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -44,48 +45,34 @@ public final class AddMembershipListenerRequest extends CallableClientRequest im
     @Override
     public Object call() throws Exception {
         final ClusterServiceImpl service = getService();
-        final MutableString id = new MutableString();
+        final ClientEndpoint endpoint = getEndpoint();
+        final ClientEngine clientEngine = getClientEngine();
+
         final String registration = service.addMembershipListener(new MembershipListener() {
             public void memberAdded(MembershipEvent membershipEvent) {
-                if (getEndpoint().live()) {
+                if (endpoint.live()) {
                     final MemberImpl member = (MemberImpl) membershipEvent.getMember();
-                    getClientEngine().sendResponse(getEndpoint(), new ClientMembershipEvent(member, MembershipEvent.MEMBER_ADDED));
-                } else {
-                    deregister();
+                    clientEngine.sendResponse(endpoint, new ClientMembershipEvent(member, MembershipEvent.MEMBER_ADDED));
                 }
             }
 
             public void memberRemoved(MembershipEvent membershipEvent) {
-                if (getEndpoint().live()) {
+                if (endpoint.live()) {
                     final MemberImpl member = (MemberImpl) membershipEvent.getMember();
-                    getClientEngine().sendResponse(getEndpoint(), new ClientMembershipEvent(member, MembershipEvent.MEMBER_REMOVED));
-                } else {
-                    deregister();
+                    clientEngine.sendResponse(endpoint, new ClientMembershipEvent(member, MembershipEvent.MEMBER_REMOVED));
                 }
             }
 
             @Override
 			public void memberAttributeChanged(MemberAttributeEvent memberAttributeEvent) {
-                if (getEndpoint().live()) {
-                    final MemberImpl member = (MemberImpl) memberAttributeEvent.getMember();
-                    final String uuid = member.getUuid();
-                    final MapOperationType op = memberAttributeEvent.getOperationType();
-                    final String key = memberAttributeEvent.getKey();
-                    final Object value = memberAttributeEvent.getValue();
-                    getClientEngine().sendResponse(getEndpoint(), new ClientMemberAttributeChangedEvent(uuid, op, key, value));
-                } else {
-                    deregister();
-                }
+                final MemberImpl member = (MemberImpl) memberAttributeEvent.getMember();
+                final String uuid = member.getUuid();
+                final MapOperationType op = memberAttributeEvent.getOperationType();
+                final String key = memberAttributeEvent.getKey();
+                final Object value = memberAttributeEvent.getValue();
+                getClientEngine().sendResponse(getEndpoint(), new ClientMemberAttributeChangedEvent(uuid, op, key, value));
 			}
-
-			private void deregister() {
-                final String registrationId = id.getString();
-                if (registrationId != null) {
-                    service.removeMembershipListener(registrationId);
-                }
-            }
         });
-        id.setString(registration);
 
         final Collection<MemberImpl> memberList = service.getMemberList();
         final Collection<Data> response = new ArrayList<Data>(memberList.size());

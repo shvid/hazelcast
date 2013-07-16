@@ -476,7 +476,7 @@ public class ManagementCenterService implements LifecycleListener, MembershipLis
     }
 
     class TaskPoller extends Thread {
-        final ConsoleRequest[] consoleRequests = new ConsoleRequest[20];
+        final ConsoleRequest[] consoleRequests = new ConsoleRequest[21];
 
         TaskPoller() {
             super(instance.node.threadGroup, instance.node.getThreadNamePrefix("MC.Task.Poller"));
@@ -486,17 +486,15 @@ public class ManagementCenterService implements LifecycleListener, MembershipLis
             register(new EvictLocalMapRequest());
             register(new ConsoleCommandRequest());
             register(new MapConfigRequest());
-//            register(new DetectDeadlockRequest());
             register(new MemberConfigRequest());
             register(new ClusterPropsRequest());
-            register(new SetLogLevelRequest());
-            register(new GetLogLevelRequest());
             register(new GetLogsRequest());
             register(new RunGcRequest());
             register(new GetMemberSystemPropertiesRequest());
             register(new GetMapEntryRequest());
             register(new VersionMismatchLogRequest());
             register(new ShutdownMemberRequest());
+            register(new GetSystemWarningsRequest());
         }
 
         public void register(ConsoleRequest consoleRequest) {

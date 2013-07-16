@@ -22,7 +22,10 @@ import com.hazelcast.config.MapIndexConfig;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.core.IMap;
 import com.hazelcast.instance.GroupProperties;
-import com.hazelcast.query.*;
+import com.hazelcast.query.EntryObject;
+import com.hazelcast.query.Predicate;
+import com.hazelcast.query.PredicateBuilder;
+import com.hazelcast.query.SqlPredicate;
 import com.hazelcast.test.HazelcastJUnit4ClassRunner;
 import com.hazelcast.test.HazelcastTestSupport;
 import com.hazelcast.test.TestHazelcastInstanceFactory;
@@ -622,6 +625,11 @@ public class QueryTest extends HazelcastTestSupport {
     @Test
     public void testIndexPerformance() {
         Config cfg = new Config();
+        final MapConfig mapConfig = cfg.getMapConfig("employees2");
+        mapConfig.addMapIndexConfig(new MapIndexConfig("name", false))
+                .addMapIndexConfig(new MapIndexConfig("age", true))
+                .addMapIndexConfig(new MapIndexConfig("active", false));
+
         TestHazelcastInstanceFactory nodeFactory = createHazelcastInstanceFactory(4);
         HazelcastInstance h1 = nodeFactory.newHazelcastInstance(cfg);
         IMap imap = h1.getMap("employees");
@@ -640,10 +648,8 @@ public class QueryTest extends HazelcastTestSupport {
             assertTrue(c.isActive());
         }
         imap.clear();
+
         imap = h1.getMap("employees2");
-        imap.addIndex("name", false);
-        imap.addIndex("age", true);
-        imap.addIndex("active", false);
         for (int i = 0; i < 5000; i++) {
             imap.put(String.valueOf(i), new Employee("name" + i, i % 60, ((i & 1) == 1), Double.valueOf(i)));
         }
@@ -1314,7 +1320,7 @@ public class QueryTest extends HazelcastTestSupport {
         final Config config = new Config();
         config.setProperty(GroupProperties.PROP_WAIT_SECONDS_BEFORE_JOIN, "0");
         final String mapName = "testIndexCleanupOnMigration";
-        config.getMapConfig(mapName).addMapIndexConfig(new MapIndexConfig("name", false));
+//        config.getMapConfig(mapName).addMapIndexConfig(new MapIndexConfig("name", false));
         ExecutorService ex = Executors.newFixedThreadPool(n);
         final CountDownLatch latch = new CountDownLatch(n);
         final AtomicInteger countdown = new AtomicInteger(n * runCount);
@@ -1338,12 +1344,13 @@ public class QueryTest extends HazelcastTestSupport {
                             } catch (InterruptedException e) {
                                 break;
                             }
+                            Value v1 = map.get(name);
+                            assertEquals(v, v1);
                             EntryObject e = new PredicateBuilder().getEntryObject();
                             Predicate<?, ?> predicate = e.get("name").equal(name);
-                            final Collection<Value> values = map.values(predicate);
+                            Collection<Value> values = map.values(predicate);
                             assertEquals(1, values.size());
-                            Value v1 = values.iterator().next();
-                            Value v2 = map.get(name);
+                            Value v2 = values.iterator().next();
                             assertEquals(v1, v2);
                             countdown.decrementAndGet();
                         }

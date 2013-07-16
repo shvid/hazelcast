@@ -94,6 +94,10 @@ public class ClientEngineImpl implements ClientEngine, ConnectionListener, CoreS
         return serializationService;
     }
 
+    public EventService getEventService() {
+        return nodeEngine.getEventService();
+    }
+
     void sendOperation(Operation op, Address target) {
         nodeEngine.getOperationService().send(op, target);
     }
@@ -158,7 +162,7 @@ public class ClientEngineImpl implements ClientEngine, ConnectionListener, CoreS
     private final ConstructorFunction<Connection, ClientEndpoint> endpointConstructor
             = new ConstructorFunction<Connection, ClientEndpoint>() {
         public ClientEndpoint createNew(Connection conn) {
-            return new ClientEndpoint(conn, UuidUtil.createClientUuid(conn.getEndPoint()));
+            return new ClientEndpoint(ClientEngineImpl.this, conn, UuidUtil.createClientUuid(conn.getEndPoint()));
         }
     };
 
@@ -226,7 +230,7 @@ public class ClientEngineImpl implements ClientEngine, ConnectionListener, CoreS
             final ClientEndpoint endpoint = endpoints.get(connection);
             if (endpoint != null && node.getLocalMember().getUuid().equals(endpoint.getPrincipal().getOwnerUuid())) {
                 removeEndpoint(connection, true);
-                if (!endpoint.isFirstConnection()){
+                if (!endpoint.isFirstConnection()) {
                     return;
                 }
                 NodeEngine nodeEngine = node.nodeEngine;
@@ -331,12 +335,17 @@ public class ClientEngineImpl implements ClientEngine, ConnectionListener, CoreS
                 final ClientRequest request = (ClientRequest) serializationService.toObject(data);
                 if (endpoint.isAuthenticated() || request instanceof AuthenticationRequest) {
                     request.setEndpoint(endpoint);
-                    if (request.getServiceName() != null) {
-                        final Object service = nodeEngine.getService(request.getServiceName());
+                    final String serviceName = request.getServiceName();
+                    if (serviceName != null) {
+                        final Object service = nodeEngine.getService(serviceName);
                         if (service == null) {
-                            throw new IllegalArgumentException("No service registered with name: " + request.getServiceName());
+                            throw new IllegalArgumentException("No service registered with name: " + serviceName);
                         }
                         request.setService(service);
+                        if (request instanceof InitializingRequest) {
+                            Object objectId = ((InitializingRequest) request).getObjectId();
+                            nodeEngine.getProxyService().initializeDistributedObject(serviceName, objectId);
+                        }
                     }
                     request.setClientEngine(ClientEngineImpl.this);
                     request.process();
@@ -347,7 +356,8 @@ public class ClientEngineImpl implements ClientEngine, ConnectionListener, CoreS
                     removeEndpoint(conn);
                 }
             } catch (Throwable e) {
-                logger.log(Level.SEVERE, e.getMessage(), e);
+                final Level level = nodeEngine.isActive() ? Level.SEVERE : Level.FINEST;
+                logger.log(level, e.getMessage(), e);
                 sendResponse(endpoint, e);
             }
         }

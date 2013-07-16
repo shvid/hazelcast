@@ -16,9 +16,8 @@
 
 package com.hazelcast.transaction.impl;
 
-/**
- * Hazelcast transaction interface.
- */
+import com.hazelcast.transaction.TransactionException;
+
 public interface Transaction {
 
     public enum State {
@@ -33,11 +32,13 @@ public interface Transaction {
         ROLLED_BACK
     }
 
-    void addTransactionLog(TransactionLog transactionLog);
+    void begin() throws IllegalStateException;
 
-    void removeTransactionLog(Object key);
+    void prepare() throws TransactionException;
 
-    TransactionLog getTransactionLog(Object key);
+    void commit() throws TransactionException, IllegalStateException;
+
+    void rollback() throws IllegalStateException;
 
     String getTxnId();
 

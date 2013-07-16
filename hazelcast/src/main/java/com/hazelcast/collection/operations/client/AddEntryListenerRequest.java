@@ -19,6 +19,7 @@ package com.hazelcast.collection.operations.client;
 import com.hazelcast.client.CallableClientRequest;
 import com.hazelcast.client.ClientEndpoint;
 import com.hazelcast.client.ClientEngine;
+import com.hazelcast.client.InitializingRequest;
 import com.hazelcast.collection.CollectionPortableHook;
 import com.hazelcast.collection.CollectionProxyId;
 import com.hazelcast.collection.CollectionService;
@@ -34,17 +35,15 @@ import com.hazelcast.nio.serialization.PortableWriter;
 import com.hazelcast.spi.impl.PortableEntryEvent;
 
 import java.io.IOException;
-import java.util.logging.Level;
 
 /**
  * @author ali 5/10/13
  */
-public class AddEntryListenerRequest extends CallableClientRequest implements Portable {
+public class AddEntryListenerRequest extends CallableClientRequest implements Portable, InitializingRequest {
 
     CollectionProxyId proxyId;
     Data key;
     boolean includeValue;
-    private transient String registrationId;
 
     public AddEntryListenerRequest() {
     }
@@ -77,29 +76,27 @@ public class AddEntryListenerRequest extends CallableClientRequest implements Po
                 send(event);
             }
 
-            private void send(EntryEvent event){
-                if (endpoint.live()){
+            private void send(EntryEvent event) {
+                if (endpoint.live()) {
                     Data key = clientEngine.toData(event.getKey());
                     Data value = clientEngine.toData(event.getValue());
                     Data oldValue = clientEngine.toData(event.getOldValue());
                     PortableEntryEvent portableEntryEvent = new PortableEntryEvent(key, value, oldValue, event.getEventType(), event.getMember().getUuid());
                     clientEngine.sendResponse(endpoint, portableEntryEvent);
                 }
-                else {
-                    if (registrationId != null){
-                        service.removeListener(proxyId.getName(), registrationId);
-                    } else {
-                        getClientEngine().getLogger(AddEntryListenerRequest.class).log(Level.WARNING, "RegistrationId is null!");
-                    }
-                }
             }
         };
-        registrationId = service.addListener(proxyId.getName(), listener, key, includeValue, false);
+        String registrationId = service.addListener(proxyId.getName(), listener, key, includeValue, false);
+        endpoint.setListenerRegistration(CollectionService.SERVICE_NAME, proxyId.getName(), registrationId);
         return null;
     }
 
     public String getServiceName() {
         return CollectionService.SERVICE_NAME;
+    }
+
+    public Object getObjectId() {
+        return proxyId;
     }
 
     public int getFactoryId() {
@@ -111,7 +108,7 @@ public class AddEntryListenerRequest extends CallableClientRequest implements Po
     }
 
     public void writePortable(PortableWriter writer) throws IOException {
-        writer.writeBoolean("i",includeValue);
+        writer.writeBoolean("i", includeValue);
         final ObjectDataOutput out = writer.getRawDataOutput();
         proxyId.writeData(out);
         IOUtil.writeNullableData(out, key);

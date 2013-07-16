@@ -14,26 +14,18 @@
  * limitations under the License.
  */
 
-package com.hazelcast.client.exception;
+package com.hazelcast.transaction.impl;
 
-import com.hazelcast.core.HazelcastException;
+public interface TransactionSupport {
 
-public class ClientException extends HazelcastException {
-    private static final long serialVersionUID = 1L;
+    void addTransactionLog(TransactionLog transactionLog);
 
-    public ClientException() {
-        super();
-    }
+    void removeTransactionLog(Object key);
 
-    public ClientException(String message) {
-        super(message);
-    }
+    TransactionLog getTransactionLog(Object key);
 
-    public ClientException(String message, Throwable cause) {
-        super(message, cause);
-    }
+    String getTxnId();
 
-    public ClientException(Throwable cause) {
-        super(cause);
-    }
+    long getTimeoutMillis();
+
 }

@@ -19,7 +19,7 @@ package com.hazelcast.topic.client;
 import com.hazelcast.client.CallableClientRequest;
 import com.hazelcast.client.ClientEndpoint;
 import com.hazelcast.client.ClientEngine;
-import com.hazelcast.collection.operations.client.AddEntryListenerRequest;
+import com.hazelcast.client.InitializingRequest;
 import com.hazelcast.core.Message;
 import com.hazelcast.core.MessageListener;
 import com.hazelcast.nio.serialization.Data;
@@ -30,15 +30,13 @@ import com.hazelcast.topic.TopicPortableHook;
 import com.hazelcast.topic.TopicService;
 
 import java.io.IOException;
-import java.util.logging.Level;
 
 /**
  * @author ali 5/24/13
  */
-public class AddMessageListenerRequest extends CallableClientRequest implements Portable {
+public class AddMessageListenerRequest extends CallableClientRequest implements Portable, InitializingRequest {
 
     private String name;
-    private transient volatile String registrationId;
 
     public AddMessageListenerRequest() {
     }
@@ -57,16 +55,11 @@ public class AddMessageListenerRequest extends CallableClientRequest implements 
                     Data messageData = clientEngine.toData(message.getMessageObject());
                     PortableMessage portableMessage = new PortableMessage(messageData, message.getPublishTime(), message.getPublishingMember().getUuid());
                     clientEngine.sendResponse(endpoint,portableMessage);
-                } else {
-                    if (registrationId != null){
-                        service.removeMessageListener(name, registrationId);
-                    } else {
-                        getClientEngine().getLogger(AddMessageListenerRequest.class).log(Level.WARNING, "RegistrationId is null!");
-                    }
                 }
             }
         };
-        registrationId = service.addMessageListener(name, listener);
+        String registrationId = service.addMessageListener(name, listener);
+        endpoint.setListenerRegistration(TopicService.SERVICE_NAME, name, registrationId);
         return null;
     }
 
@@ -80,6 +73,10 @@ public class AddMessageListenerRequest extends CallableClientRequest implements 
 
     public int getClassId() {
         return TopicPortableHook.ADD_LISTENER;
+    }
+
+    public Object getObjectId() {
+        return name;
     }
 
     public void writePortable(PortableWriter writer) throws IOException {

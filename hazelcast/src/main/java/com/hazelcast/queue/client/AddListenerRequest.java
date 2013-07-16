@@ -19,7 +19,7 @@ package com.hazelcast.queue.client;
 import com.hazelcast.client.CallableClientRequest;
 import com.hazelcast.client.ClientEndpoint;
 import com.hazelcast.client.ClientEngine;
-import com.hazelcast.collection.operations.client.AddEntryListenerRequest;
+import com.hazelcast.client.InitializingRequest;
 import com.hazelcast.core.ItemEvent;
 import com.hazelcast.core.ItemListener;
 import com.hazelcast.nio.serialization.Data;
@@ -31,16 +31,14 @@ import com.hazelcast.queue.QueueService;
 import com.hazelcast.spi.impl.PortableItemEvent;
 
 import java.io.IOException;
-import java.util.logging.Level;
 
 /**
  * @author ali 5/9/13
  */
-public class AddListenerRequest extends CallableClientRequest implements Portable {
+public class AddListenerRequest extends CallableClientRequest implements Portable, InitializingRequest {
 
     private String name;
     private boolean includeValue;
-    private transient String registrationId;
 
     public AddListenerRequest() {
     }
@@ -52,6 +50,10 @@ public class AddListenerRequest extends CallableClientRequest implements Portabl
 
     public String getServiceName() {
         return QueueService.SERVICE_NAME;
+    }
+
+    public Object getObjectId() {
+        return name;
     }
 
     public int getFactoryId() {
@@ -91,17 +93,11 @@ public class AddListenerRequest extends CallableClientRequest implements Portabl
                     Data item = clientEngine.toData(event.getItem());
                     PortableItemEvent portableItemEvent = new PortableItemEvent(item, event.getEventType(), event.getMember().getUuid());
                     clientEngine.sendResponse(endpoint, portableItemEvent);
-                } else {
-                    if (registrationId != null){
-                        service.removeItemListener(name, registrationId);
-                    } else {
-                        getClientEngine().getLogger(AddListenerRequest.class).log(Level.WARNING, "RegistrationId is null!");
-                    }
-
                 }
             }
         };
-        registrationId = service.addItemListener(name, listener, includeValue);
+        String registrationId = service.addItemListener(name, listener, includeValue);
+        endpoint.setListenerRegistration(QueueService.SERVICE_NAME, name, registrationId);
         return registrationId;
     }
 }

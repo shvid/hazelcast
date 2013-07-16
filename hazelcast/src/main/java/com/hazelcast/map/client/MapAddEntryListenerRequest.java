@@ -19,6 +19,7 @@ package com.hazelcast.map.client;
 import com.hazelcast.client.CallableClientRequest;
 import com.hazelcast.client.ClientEndpoint;
 import com.hazelcast.client.ClientEngine;
+import com.hazelcast.client.InitializingRequest;
 import com.hazelcast.core.EntryEvent;
 import com.hazelcast.core.EntryListener;
 import com.hazelcast.map.EntryEventFilter;
@@ -37,13 +38,12 @@ import com.hazelcast.spi.impl.PortableEntryEvent;
 
 import java.io.IOException;
 
-public class MapAddEntryListenerRequest extends CallableClientRequest implements Portable {
+public class MapAddEntryListenerRequest extends CallableClientRequest implements Portable, InitializingRequest {
 
     private String name;
     private Data key;
     private Predicate predicate;
     private boolean includeValue;
-    private transient volatile String registrationId;
 
     public MapAddEntryListenerRequest() {
     }
@@ -68,6 +68,7 @@ public class MapAddEntryListenerRequest extends CallableClientRequest implements
         final ClientEndpoint endpoint = getEndpoint();
         final ClientEngine clientEngine = getClientEngine();
         final MapService mapService = getService();
+
         EntryListener<Object, Object> listener = new EntryListener<Object, Object>() {
 
             private void handleEvent(EntryEvent<Object, Object> event) {
@@ -77,8 +78,6 @@ public class MapAddEntryListenerRequest extends CallableClientRequest implements
                     Data oldValue = clientEngine.toData(event.getOldValue());
                     PortableEntryEvent portableEntryEvent = new PortableEntryEvent(key, value, oldValue, event.getEventType(), event.getMember().getUuid());
                     clientEngine.sendResponse(endpoint, portableEntryEvent);
-                } else {
-                    mapService.removeEventListener(name, registrationId);
                 }
             }
 
@@ -99,13 +98,14 @@ public class MapAddEntryListenerRequest extends CallableClientRequest implements
             }
         };
 
-        EventFilter eventFilter = null;
+        EventFilter eventFilter;
         if (predicate == null){
             eventFilter = new EntryEventFilter(includeValue, key);
         } else {
             eventFilter = new QueryEventFilter(includeValue, key, predicate);
         }
-        registrationId = mapService.addEventListener(listener, eventFilter, name);
+        String registrationId = mapService.addEventListener(listener, eventFilter, name);
+        endpoint.setListenerRegistration(MapService.SERVICE_NAME, name, registrationId);
         return true;
     }
 
@@ -120,6 +120,11 @@ public class MapAddEntryListenerRequest extends CallableClientRequest implements
 
     public int getClassId() {
         return MapPortableHook.ADD_ENTRY_LISTENER;
+    }
+
+    @Override
+    public Object getObjectId() {
+        return name;
     }
 
     public void writePortable(PortableWriter writer) throws IOException {
