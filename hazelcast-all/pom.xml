@@ -29,6 +29,12 @@
     <artifactId>hazelcast-all</artifactId>
     <packaging>jar</packaging>
 
+    <scm>
+        <connection>scm:git:https://noctarius@github.com/noctarius/hazelcast.git</connection>
+        <developerConnection>scm:git:https://noctarius@github.com/noctarius/hazelcast.git</developerConnection>
+        <url>https://github.com/hazelcast/hazelcast/</url>
+    </scm>
+
     <build>
         <resources>
             <!-- Include all class files, that should be part of hazelcast-all.jar and should get processed by bnd-tool  -->
