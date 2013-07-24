@@ -166,13 +166,14 @@ public class ClientEngineImpl implements ClientEngine, ConnectionListener, CoreS
         }
     };
 
-    ClientEndpoint getEndpoint(String uuid) {
+    Set<ClientEndpoint> getEndpoints(String uuid) {
+        Set<ClientEndpoint> endpointSet = new HashSet<ClientEndpoint>();
         for (ClientEndpoint endpoint : endpoints.values()) {
             if (uuid.equals(endpoint.getUuid())) {
-                return endpoint;
+                endpointSet.add(endpoint);
             }
         }
-        return null;
+        return endpointSet;
     }
 
     ClientEndpoint getEndpoint(Connection conn) {
@@ -267,7 +268,7 @@ public class ClientEngineImpl implements ClientEngine, ConnectionListener, CoreS
     private void sendClientEvent(ClientEndpoint endpoint) {
         final EventService eventService = nodeEngine.getEventService();
         final Collection<EventRegistration> regs = eventService.getRegistrations(SERVICE_NAME, SERVICE_NAME);
-        eventService.publishEvent(SERVICE_NAME, regs, endpoint);
+        eventService.publishEvent(SERVICE_NAME, regs, endpoint, endpoint.getUuid().hashCode());
     }
 
     public void dispatchEvent(ClientEndpoint event, ClientListener listener) {

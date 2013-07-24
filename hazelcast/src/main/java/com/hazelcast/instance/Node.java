@@ -481,8 +481,8 @@ public class Node {
         final Credentials credentials = (withCredentials && securityContext != null)
                 ? securityContext.getCredentialsFactory().newCredentials() : null;
 
-        return new JoinRequest(Packet.PACKET_VERSION, buildNumber, address, localMember.getUuid(),
-                               localMember.getAttributes(), createConfigCheck(), credentials, clusterService.getSize(), 0);
+        return new JoinRequest(Packet.VERSION, buildNumber, address,
+                localMember.getUuid(), localMember.getAttributes(), createConfigCheck(), credentials, clusterService.getSize(), 0);
     }
 
     public ConfigCheck createConfigCheck() {

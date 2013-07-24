@@ -166,7 +166,7 @@ public final class ClusterServiceImpl implements ClusterService, ConnectionListe
     }
 
     public boolean validateJoinMessage(JoinMessage joinMessage) throws Exception {
-        boolean valid = Packet.PACKET_VERSION == joinMessage.getPacketVersion();
+        boolean valid = Packet.VERSION == joinMessage.getPacketVersion();
         if (valid) {
             try {
                 valid = node.createConfigCheck().isCompatible(joinMessage.getConfigCheck());
@@ -862,7 +862,7 @@ public final class ClusterServiceImpl implements ClusterService, ConnectionListe
         }
         final EventService eventService = nodeEngine.getEventService();
         Collection<EventRegistration> registrations = eventService.getRegistrations(SERVICE_NAME, SERVICE_NAME);
-        eventService.publishEvent(SERVICE_NAME, registrations, membershipEvent);
+        eventService.publishEvent(SERVICE_NAME, registrations, membershipEvent, member.hashCode());
     }
 
     private void fireMemberAttributeEvent(final MemberImpl member, final MapOperationType operationType, String key, Object value) {
@@ -884,7 +884,7 @@ public final class ClusterServiceImpl implements ClusterService, ConnectionListe
         Collection<EventRegistration> registrations = eventService.getRegistrations(SERVICE_NAME, SERVICE_NAME);
         for (EventRegistration registration : registrations) {
             if (registration instanceof Registration && ((Registration) registration).isLocal()) {
-            	eventService.publishEvent(SERVICE_NAME, registration, membershipEvent);
+            	eventService.publishEvent(SERVICE_NAME, registration, membershipEvent, member.hashCode());
             }
         }
     }
