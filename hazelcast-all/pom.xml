@@ -21,7 +21,7 @@
     <parent>
         <groupId>com.hazelcast</groupId>
         <artifactId>hazelcast-root</artifactId>
-        <version>3.0.1-Ubi</version>
+        <version>3.0.3-Ubi</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -34,6 +34,20 @@
         <developerConnection>scm:git:https://noctarius@github.com/noctarius/hazelcast.git</developerConnection>
         <url>https://github.com/hazelcast/hazelcast/</url>
     </scm>
+
+    <pluginRepositories>
+        <pluginRepository>
+            <id>bb-dev-nexus</id>
+            <url>http://10.26.0.106:8081/nexus/content/groups/public/</url>
+        </pluginRepository>
+    </pluginRepositories>
+  
+    <repositories>
+        <repository>
+            <id>bb-dev-nexus</id>
+            <url>http://10.26.0.106:8081/nexus/content/groups/public/</url>
+        </repository>
+    </repositories>
 
     <build>
         <resources>
