@@ -18,9 +18,7 @@ package com.hazelcast.client;
 
 import com.hazelcast.cluster.ClusterService;
 import com.hazelcast.config.Config;
-import com.hazelcast.core.Client;
-import com.hazelcast.core.ClientListener;
-import com.hazelcast.core.ClientService;
+import com.hazelcast.core.*;
 import com.hazelcast.instance.MemberImpl;
 import com.hazelcast.instance.Node;
 import com.hazelcast.logging.ILogger;
@@ -192,11 +190,11 @@ public class ClientEngineImpl implements ClientEngine, ConnectionListener, CoreS
 
     private void destroyEndpoint(ClientEndpoint endpoint, boolean closeImmediately) {
         if (endpoint != null) {
-            logger.log(Level.INFO, "Destroying " + endpoint);
+            logger.info("Destroying " + endpoint);
             try {
                 endpoint.destroy();
             } catch (LoginException e) {
-                logger.log(Level.WARNING, e.getMessage(), e);
+                logger.warning(e);
             }
 
             final Connection connection = endpoint.getConnection();
@@ -204,7 +202,7 @@ public class ClientEngineImpl implements ClientEngine, ConnectionListener, CoreS
                 try {
                     connection.close();
                 } catch (Throwable e) {
-                    logger.log(Level.WARNING, "While closing client connection: " + e.toString());
+                    logger.warning("While closing client connection: " + e.toString());
                 }
             } else {
                 nodeEngine.getExecutionService().schedule(new Runnable() {
@@ -213,7 +211,7 @@ public class ClientEngineImpl implements ClientEngine, ConnectionListener, CoreS
                             try {
                                 connection.close();
                             } catch (Throwable e) {
-                                logger.log(Level.WARNING, "While closing client connection: " + e.toString());
+                                logger.warning("While closing client connection: " + e.toString());
                             }
                         }
                     }
@@ -340,7 +338,10 @@ public class ClientEngineImpl implements ClientEngine, ConnectionListener, CoreS
                     if (serviceName != null) {
                         final Object service = nodeEngine.getService(serviceName);
                         if (service == null) {
-                            throw new IllegalArgumentException("No service registered with name: " + serviceName);
+                            if (nodeEngine.isActive()) {
+                                throw new IllegalArgumentException("No service registered with name: " + serviceName);
+                            }
+                            throw new HazelcastInstanceNotActiveException();
                         }
                         request.setService(service);
                         if (request instanceof InitializingRequest) {
@@ -351,9 +352,16 @@ public class ClientEngineImpl implements ClientEngine, ConnectionListener, CoreS
                     request.setClientEngine(ClientEngineImpl.this);
                     request.process();
                 } else {
-                    String message = "Client " + conn + " must authenticate before any operation.";
-                    logger.log(Level.SEVERE, message);
-                    sendResponse(endpoint, new AuthenticationException(message));
+                    Exception exception;
+                    if (nodeEngine.isActive()) {
+                        String message = "Client " + conn + " must authenticate before any operation.";
+                        logger.severe(message);
+                        exception = new AuthenticationException(message);
+                    } else {
+                        exception = new HazelcastInstanceNotActiveException();
+                    }
+                    sendResponse(endpoint, exception);
+
                     removeEndpoint(conn);
                 }
             } catch (Throwable e) {
@@ -381,7 +389,7 @@ public class ClientEngineImpl implements ClientEngine, ConnectionListener, CoreS
             try {
                 endpoint.destroy();
             } catch (LoginException e) {
-                logger.log(Level.FINEST, e.getMessage());
+                logger.finest( e.getMessage());
             }
             try {
                 final Connection conn = endpoint.getConnection();
@@ -389,7 +397,7 @@ public class ClientEngineImpl implements ClientEngine, ConnectionListener, CoreS
                     conn.close( );
                 }
             } catch (Exception e) {
-                logger.log(Level.FINEST, e.getMessage(), e);
+                logger.finest( e);
             }
         }
         endpoints.clear();

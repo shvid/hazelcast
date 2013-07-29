@@ -119,13 +119,13 @@ public class TransactionManagerServiceImpl implements TransactionManagerService,
                         try {
                             tx.commit();
                         } catch (Throwable e) {
-                            logger.log(Level.WARNING, "Error during committing from tx backup!", e);
+                            logger.warning("Error during committing from tx backup!", e);
                         }
                     } else {
                         try {
                             tx.rollback();
                         } catch (Throwable e) {
-                            logger.log(Level.WARNING, "Error during rolling-back from tx backup!", e);
+                            logger.warning( "Error during rolling-back from tx backup!", e);
                         }
                     }
                 }
@@ -161,7 +161,7 @@ public class TransactionManagerServiceImpl implements TransactionManagerService,
         if (log != null) {
             log.state = State.ROLLING_BACK;
         } else {
-            logger.log(Level.WARNING, "No tx backup log is found, tx -> " + txnId);
+            logger.warning( "No tx backup log is found, tx -> " + txnId);
         }
     }
 

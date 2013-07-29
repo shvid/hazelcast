@@ -57,7 +57,7 @@ public final class ExecutionServiceImpl implements ExecutionService {
                 3, Integer.MAX_VALUE, 60L, TimeUnit.SECONDS,
                 new SynchronousQueue<Runnable>(), threadFactory, new RejectedExecutionHandler() {
             public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
-                logger.log(Level.FINEST, "Node is shutting down; discarding the task: " + r);
+                logger.finest( "Node is shutting down; discarding the task: " + r);
             }
         });
 
@@ -68,7 +68,8 @@ public final class ExecutionServiceImpl implements ExecutionService {
 
         final int coreSize = Runtime.getRuntime().availableProcessors();
         // default executors
-        register(SYSTEM_EXECUTOR, coreSize * 2, Integer.MAX_VALUE);
+        register(SYSTEM_EXECUTOR, coreSize, Integer.MAX_VALUE);
+        register(OPERATION_EXECUTOR, coreSize * 2, Integer.MAX_VALUE);
         register(ASYNC_EXECUTOR, coreSize * 10, coreSize * 10000);
         register(CLIENT_EXECUTOR, coreSize * 10, coreSize * 10000);
         scheduledManagedExecutor = register(SCHEDULED_EXECUTOR, coreSize * 5, coreSize * 10000);
@@ -153,13 +154,13 @@ public final class ExecutionServiceImpl implements ExecutionService {
 
     @PrivateApi
     void shutdown() {
-        logger.log(Level.FINEST, "Stopping executors...");
+        logger.finest( "Stopping executors...");
         cachedExecutorService.shutdown();
         scheduledExecutorService.shutdownNow();
         try {
             cachedExecutorService.awaitTermination(3, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
-            logger.log(Level.FINEST, e.getMessage(), e);
+            logger.finest(e);
         }
         for (ExecutorService executorService : executors.values()) {
             executorService.shutdown();

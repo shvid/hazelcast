@@ -16,7 +16,25 @@
 
 package com.hazelcast.core;
 
+/**
+ * Lifecycle event fired when HazelcastInstance's state changes.
+ * Events are fired when instance:
+ * <ul>
+ * <li>Starting</li>
+ * <li>Started</li>
+ * <li>Shutting down</li>
+ * <li>Shut down completed</li>
+ * <li>Merging</li>
+ * <li>Merged</li>
+ * </ul>
+ *
+ * @see com.hazelcast.core.LifecycleListener
+ * @see HazelcastInstance#getLifecycleService()
+ */
 public final class LifecycleEvent {
+    /**
+     * lifecycle states
+     */
     public enum LifecycleState {
         STARTING,
         STARTED,

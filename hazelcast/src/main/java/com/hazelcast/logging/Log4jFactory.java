@@ -29,7 +29,7 @@ public class Log4jFactory extends LoggerFactorySupport implements LoggerFactory 
         return new Log4jLogger(l);
     }
 
-    class Log4jLogger implements ILogger {
+    class Log4jLogger extends AbstractLogger {
         private final Logger logger;
         private final Level level;
 
@@ -65,7 +65,9 @@ public class Log4jFactory extends LoggerFactorySupport implements LoggerFactory 
         }
 
         public boolean isLoggable(Level level) {
-            if (Level.FINEST == level) {
+            if (Level.OFF == level) {
+                return false;
+            } else if (Level.FINEST == level) {
                 return logger.isDebugEnabled();
             } else if (Level.WARNING == level) {
                 return logger.isEnabledFor(org.apache.log4j.Level.WARN);

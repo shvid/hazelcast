@@ -43,7 +43,7 @@ class HazelcastClientLoader implements IHazelcastInstanceLoader {
 
     public HazelcastInstance loadInstance() throws CacheException {
         if (client != null && client.getLifecycleService().isRunning()) {
-            logger.log(Level.WARNING, "Current HazelcastClient is already active! Shutting it down...");
+            logger.warning("Current HazelcastClient is already active! Shutting it down...");
             unloadInstance();
         }
         String address = ConfigurationHelper.getString(CacheEnvironment.NATIVE_CLIENT_ADDRESS, props, null);
@@ -56,13 +56,12 @@ class HazelcastClientLoader implements IHazelcastInstanceLoader {
             try {
                 clientConfig = new XmlClientConfigBuilder(configResourcePath).build();
             } catch (IOException e) {
-                logger.log(Level.WARNING, "Could not load client configuration: " + configResourcePath, e);
+                logger.warning("Could not load client configuration: " + configResourcePath, e);
             }
         }
         if (clientConfig == null) {
             clientConfig = new ClientConfig();
-            clientConfig.setSmart(true);
-            clientConfig.setConnectionAttemptLimit(3);
+            clientConfig.setConnectionAttemptLimit(10);
         }
         if (group != null) {
             clientConfig.getGroupConfig().setName(group);
@@ -73,6 +72,8 @@ class HazelcastClientLoader implements IHazelcastInstanceLoader {
         if (address != null) {
             clientConfig.addAddress(address);
         }
+        clientConfig.setSmart(true);
+        clientConfig.setRedoOperation(true);
         return (client = HazelcastClient.newHazelcastClient(clientConfig));
     }
 

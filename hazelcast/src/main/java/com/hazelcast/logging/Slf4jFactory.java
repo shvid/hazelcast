@@ -29,7 +29,7 @@ public class Slf4jFactory extends LoggerFactorySupport {
         return new Slf4jLogger(l);
     }
 
-    class Slf4jLogger implements ILogger {
+    class Slf4jLogger extends AbstractLogger {
         private final Logger logger;
 
         public Slf4jLogger(Logger logger) {
@@ -61,7 +61,9 @@ public class Slf4jFactory extends LoggerFactorySupport {
         }
 
         public boolean isLoggable(Level level) {
-            if (Level.FINEST == level) {
+            if (Level.OFF == level) {
+                return false;
+            } else if (Level.FINEST == level) {
                 return logger.isDebugEnabled();
             } else if (Level.INFO == level) {
                 return logger.isInfoEnabled();

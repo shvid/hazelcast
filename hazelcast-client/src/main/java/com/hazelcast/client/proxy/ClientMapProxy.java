@@ -126,9 +126,13 @@ public final class ClientMapProxy<K, V> extends ClientProxy implements IMap<K, V
     }
 
     public Future<V> putAsync(final K key, final V value) {
+        return putAsync(key, value, -1, null);
+    }
+
+    public Future<V> putAsync(final K key, final V value, final long ttl, final TimeUnit timeunit) {
         Future<V> f = getContext().getExecutionService().submit(new Callable<V>() {
             public V call() throws Exception {
-                return put(key, value);
+                return put(key, value, ttl, timeunit);
             }
         });
         return f;
@@ -569,7 +573,7 @@ public final class ClientMapProxy<K, V> extends ClientProxy implements IMap<K, V
                 } catch (Exception e) {
                     _nearCache = null;
 //                    nearCacheInitialized.set(false);
-                    Logger.getLogger(ClientMapProxy.class).log(Level.SEVERE, "-----------------\n Near Cache is not initialized!!! \n-----------------", e);
+                    Logger.getLogger(ClientMapProxy.class).severe("-----------------\n Near Cache is not initialized!!! \n-----------------", e);
                 }
             }
             nearCache = _nearCache;
