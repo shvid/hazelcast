@@ -182,6 +182,11 @@ public class NodeEngineImpl implements NodeEngine {
     }
 
     private boolean send(Packet packet, Address target, FutureSend futureSend) {
+        if (target.equals( node.address ))
+        {
+            return false;
+        }
+        
         final ConnectionManager connectionManager = node.getConnectionManager();
         final Connection connection = connectionManager.getConnection(target);
         if (connection != null) {
