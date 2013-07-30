@@ -146,7 +146,7 @@ public class EventServiceImpl implements EventService, PostJoinAwareService {
             } catch (InterruptedException ignored) {
             } catch (TimeoutException ignored) {
             } catch (MemberLeftException e){
-                logger.finest(e);
+                logger.log(Level.FINEST, "Member left while registering listener...", e);
             } catch (ExecutionException e) {
                 throw new HazelcastException(e);
             }
@@ -168,6 +168,8 @@ public class EventServiceImpl implements EventService, PostJoinAwareService {
                 f.get(5, TimeUnit.SECONDS);
             } catch (InterruptedException ignored) {
             } catch (TimeoutException ignored) {
+            } catch (MemberLeftException e){
+                logger.log(Level.FINEST, "Member left while de-registering listener...", e);
             } catch (ExecutionException e) {
                 throw new HazelcastException(e);
             }
@@ -235,7 +237,7 @@ public class EventServiceImpl implements EventService, PostJoinAwareService {
             try {
                 eventExecutor.execute(new LocalEventDispatcher(serviceName, event, reg.listener, orderKey));
             } catch (RejectedExecutionException e) {
-                logger.warning(e.toString());
+                logger.log(Level.WARNING, e.toString());
             }
         }
     }
@@ -276,7 +278,7 @@ public class EventServiceImpl implements EventService, PostJoinAwareService {
             try {
                 eventExecutor.execute(eventRunnable);
             } catch (RejectedExecutionException e) {
-                logger.warning(e.toString());
+                logger.log(Level.WARNING, e.toString());
             }
         }
     }
@@ -286,7 +288,7 @@ public class EventServiceImpl implements EventService, PostJoinAwareService {
         try {
             eventExecutor.execute(new RemoteEventPacketProcessor(packet));
         } catch (RejectedExecutionException e) {
-            logger.warning( e.toString());
+            logger.log(Level.WARNING, e.toString());
         }
     }
 
@@ -303,7 +305,7 @@ public class EventServiceImpl implements EventService, PostJoinAwareService {
     }
 
     void shutdown() {
-        logger.finest( "Stopping event executor...");
+        logger.log(Level.FINEST, "Stopping event executor...");
         eventExecutor.shutdown();
         for (EventServiceSegment segment : segments.values()) {
             segment.clear();
@@ -419,21 +421,21 @@ public class EventServiceImpl implements EventService, PostJoinAwareService {
             final String serviceName = eventPacket.serviceName;
             EventPublishingService<Object, Object> service = nodeEngine.getService(serviceName);
             if (service == null) {
-                logger.warning("There is no service named: " + serviceName);
+                logger.log(Level.WARNING, "There is no service named: " + serviceName);
                 return;
             }
             EventServiceSegment segment = getSegment(serviceName, false);
             if (segment == null) {
-                logger.warning("No service registration found for " + serviceName);
+                logger.log(Level.WARNING, "No service registration found for " + serviceName);
                 return;
             }
             Registration registration = segment.registrationIdMap.get(eventPacket.id);
             if (registration == null) {
-                logger.warning("No registration found for " + serviceName + " / " + eventPacket.id);
+                logger.log(Level.WARNING, "No registration found for " + serviceName + " / " + eventPacket.id);
                 return;
             }
             if (!registration.isLocal()) {
-                logger.warning("Invalid target for  " + registration);
+                logger.log(Level.WARNING, "Invalid target for  " + registration);
                 return;
             }
             service.dispatchEvent(eventObject, registration.listener);
