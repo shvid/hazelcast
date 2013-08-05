@@ -16,27 +16,28 @@
 
 package com.hazelcast.core;
 
-import java.io.IOException;
+import static com.hazelcast.cluster.MemberAttributeChangedOperation.DELTA_MEMBER_PROPERTIES_OP_PUT;
+import static com.hazelcast.cluster.MemberAttributeChangedOperation.DELTA_MEMBER_PROPERTIES_OP_REMOVE;
 
-import com.hazelcast.instance.MemberImpl;
+import java.io.IOException;
+import java.util.Set;
+
 import com.hazelcast.map.operation.MapOperationType;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
+import com.hazelcast.nio.serialization.DataSerializable;
 
-import static com.hazelcast.cluster.MemberAttributeChangedOperation.*;
-
-public class MemberAttributeEvent extends MembershipEvent {
+public class MemberAttributeEvent extends MembershipEvent implements DataSerializable {
 
 	private MapOperationType operationType;
 	private String key; 
 	private Object value;
 	
-	public MemberAttributeEvent() {
-	}
+	private Member member;
 	
-	public MemberAttributeEvent(MemberImpl member, MapOperationType operationType, String key, Object value) {
-		super(member, MEMBER_ATTRIBUTE_CHANGED);
-		
+	public MemberAttributeEvent(Cluster cluster, Member member, Set<Member> members, MapOperationType operationType, String key, Object value) {
+		super(cluster, member, MEMBER_ATTRIBUTE_CHANGED, members);
+		this.member = member;
 	}
 
 	public MapOperationType getOperationType() {
@@ -53,7 +54,7 @@ public class MemberAttributeEvent extends MembershipEvent {
 
 	@Override
 	public void writeData(ObjectDataOutput out) throws IOException {
-		super.writeData(out);
+	    out.writeObject(member);
 		out.writeUTF(key);
 		switch (operationType) {
 			case PUT:
@@ -68,7 +69,7 @@ public class MemberAttributeEvent extends MembershipEvent {
 
 	@Override
 	public void readData(ObjectDataInput in) throws IOException {
-		super.readData(in);
+		member = in.readObject();
 		key = in.readUTF();
 		int operation = in.readByte();
 		switch (operation)

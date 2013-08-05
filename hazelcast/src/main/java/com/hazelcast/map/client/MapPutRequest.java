@@ -16,22 +16,19 @@
 
 package com.hazelcast.map.client;
 
-import com.hazelcast.client.InitializingRequest;
+import com.hazelcast.client.InitializingObjectRequest;
 import com.hazelcast.client.KeyBasedClientRequest;
 import com.hazelcast.map.MapPortableHook;
 import com.hazelcast.map.MapService;
 import com.hazelcast.map.operation.PutOperation;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
-import com.hazelcast.nio.serialization.Data;
-import com.hazelcast.nio.serialization.Portable;
-import com.hazelcast.nio.serialization.PortableReader;
-import com.hazelcast.nio.serialization.PortableWriter;
+import com.hazelcast.nio.serialization.*;
 import com.hazelcast.spi.Operation;
 
 import java.io.IOException;
 
-public class MapPutRequest extends KeyBasedClientRequest implements Portable, InitializingRequest {
+public class MapPutRequest extends KeyBasedClientRequest implements Portable, InitializingObjectRequest {
 
     protected Data key;
     protected Data value;

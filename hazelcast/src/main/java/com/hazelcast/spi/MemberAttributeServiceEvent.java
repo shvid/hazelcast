@@ -16,18 +16,18 @@
 
 package com.hazelcast.spi;
 
+import java.util.Set;
+
+import com.hazelcast.core.Cluster;
+import com.hazelcast.core.Member;
 import com.hazelcast.core.MemberAttributeEvent;
 import com.hazelcast.instance.MemberImpl;
 import com.hazelcast.map.operation.MapOperationType;
 
 public class MemberAttributeServiceEvent extends MemberAttributeEvent {
 
-	public MemberAttributeServiceEvent() {
-		super();
-	}
-
-	public MemberAttributeServiceEvent(MemberImpl member, MapOperationType operationType, String key, Object value) {
-		super(member, operationType, key, value);
+	public MemberAttributeServiceEvent(Cluster cluster, Member member, Set<Member> members, MapOperationType operationType, String key, Object value) {
+		super(cluster, member, members, operationType, key, value);
 	}
 
 }

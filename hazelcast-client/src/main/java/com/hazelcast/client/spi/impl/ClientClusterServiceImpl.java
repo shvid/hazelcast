@@ -26,9 +26,11 @@ import java.util.EventListener;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
@@ -55,8 +57,11 @@ import com.hazelcast.client.util.ErrorHandler;
 import com.hazelcast.cluster.client.AddMembershipListenerRequest;
 import com.hazelcast.cluster.client.ClientMemberAttributeChangedEvent;
 import com.hazelcast.cluster.client.ClientMembershipEvent;
+import com.hazelcast.core.Cluster;
 import com.hazelcast.core.HazelcastException;
 import com.hazelcast.core.HazelcastInstanceNotActiveException;
+import com.hazelcast.core.InitialMembershipEvent;
+import com.hazelcast.core.InitialMembershipListener;
 import com.hazelcast.core.Member;
 import com.hazelcast.core.MemberAttributeEvent;
 import com.hazelcast.core.MembershipEvent;
@@ -317,6 +322,11 @@ public final class ClientClusterServiceImpl implements ClientClusterService {
 
     public String addMembershipListener(MembershipListener listener) {
         final String id = UUID.randomUUID().toString();
+        if (listener instanceof InitialMembershipListener) {
+            // TODO: needs sync with membership events...
+            final Cluster cluster = client.getCluster();
+            ((InitialMembershipListener) listener).init(new InitialMembershipEvent(cluster, cluster.getMembers()));
+        }
         listeners.put(id, listener);
         return id;
     }
@@ -435,16 +445,17 @@ public final class ClientClusterServiceImpl implements ClientClusterService {
                 members.add((MemberImpl) serializationService.toObject(d));
             }
             updateMembersRef();
-            logger.info( membersString());
+            logger.info(membersString());
             final List<MembershipEvent> events = new LinkedList<MembershipEvent>();
+            final Set<Member> eventMembers = Collections.unmodifiableSet(new LinkedHashSet<Member>(members));
             for (MemberImpl member : members) {
                 final MemberImpl former = prevMembers.remove(member.getUuid());
                 if (former == null) {
-                    events.add(new MembershipEvent(member, MembershipEvent.MEMBER_ADDED));
+                    events.add(new MembershipEvent(client.getCluster(), member, MembershipEvent.MEMBER_ADDED, eventMembers));
                 }
             }
             for (MemberImpl member : prevMembers.values()) {
-                events.add(new MembershipEvent(member, MembershipEvent.MEMBER_REMOVED));
+                events.add(new MembershipEvent(client.getCluster(), member, MembershipEvent.MEMBER_REMOVED, eventMembers));
             }
             for (MembershipEvent event : events) {
                 fireMembershipEvent(event);
@@ -467,7 +478,8 @@ public final class ClientClusterServiceImpl implements ClientClusterService {
 	                }
 	                updateMembersRef();
 	                logger.info(membersString());
-	                fireMembershipEvent(event);
+	                fireMembershipEvent(new MembershipEvent(client.getCluster(), member, event.getEventType(),
+	                        Collections.unmodifiableSet(new LinkedHashSet<Member>(members))));
                 } else if (eventObject instanceof ClientMemberAttributeChangedEvent) {
                 	ClientMemberAttributeChangedEvent event = (ClientMemberAttributeChangedEvent) eventObject;
                     Map<Address, MemberImpl> memberMap = membersRef.get();
@@ -478,7 +490,8 @@ public final class ClientClusterServiceImpl implements ClientClusterService {
                     			final String key = event.getKey();
                     			final Object value = event.getValue();
                     			member.updateAttribute(operationType, key, value);
-                    			fireMemberAttributeEvent(new MemberAttributeEvent(member, operationType, key, value));
+                    			fireMemberAttributeEvent(new MemberAttributeEvent(client.getCluster(), member,
+                    			    Collections.unmodifiableSet(new LinkedHashSet<Member>(members)), operationType, key, value));
                     			break;
                     		}
                     	}
