@@ -69,6 +69,10 @@ public final class HazelcastClientProxy implements HazelcastInstance {
         return getClient().getMap(name);
     }
 
+    public <K, V> IReplicatedMap<K, V> getReplicatedMap(String name) {
+        return getClient().getReplicatedMap(name);
+    }
+
     public <K, V> MultiMap<K, V> getMultiMap(String name) {
         return getClient().getMultiMap(name);
     }

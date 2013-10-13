@@ -16,13 +16,16 @@
 
 package com.hazelcast.map.operation;
 
+import com.hazelcast.config.DistributionStrategyConfig;
 import com.hazelcast.core.EntryEventType;
+import com.hazelcast.core.Member;
+import com.hazelcast.instance.MemberImpl;
 import com.hazelcast.map.SimpleEntryView;
 import com.hazelcast.map.record.Record;
+import com.hazelcast.nio.Address;
 import com.hazelcast.nio.serialization.Data;
-import com.hazelcast.spi.BackupAwareOperation;
-import com.hazelcast.spi.Operation;
-import com.hazelcast.spi.ResponseHandler;
+import com.hazelcast.partition.PartitionView;
+import com.hazelcast.spi.*;
 
 public abstract class BasePutOperation extends LockAwareOperation implements BackupAwareOperation {
 
@@ -50,6 +53,19 @@ public abstract class BasePutOperation extends LockAwareOperation implements Bac
             Record record = recordStore.getRecord(dataKey);
             SimpleEntryView entryView = new SimpleEntryView(dataKey, mapService.toData(dataValue), record.getStatistics(), record.getVersion());
             mapService.publishWanReplicationUpdate(name, entryView);
+        }
+        if (mapContainer.getMapConfig().getDistributionStrategyConfig() == DistributionStrategyConfig.Distributed) {
+            NodeEngine nodeEngine = mapService.getNodeEngine();
+            PartitionView partitionView = nodeEngine.getPartitionService().getPartition(getPartitionId());
+            for (MemberImpl member : nodeEngine.getClusterService().getMemberList()) {
+                Address address = member.getAddress();
+                if (!partitionView.isBackup(address)) {
+                    OperationService os = nodeEngine.getOperationService();
+                    Operation op = new PutReplicateOperation(name, dataKey, dataValue, ttl);
+                    op.setPartitionId(getPartitionId()).setServiceName(getServiceName());
+                    os.send(op, address);
+                }
+            }
         }
     }
 

@@ -132,6 +132,13 @@ public final class HazelcastInstanceImpl implements HazelcastInstance {
         return getDistributedObject(MapService.SERVICE_NAME, name);
     }
 
+    public <K, V> IReplicatedMap<K, V> getReplicatedMap(String name) {
+        if (name == null) {
+            throw new NullPointerException("Retrieving a replicated map instance with a null key is not allowed!");
+        }
+        return getDistributedObject(MapService.SERVICE_NAME, MapService.REPLICATED_MAP_BASE_NAME + name);
+    }
+
     public <E> IQueue<E> getQueue(String name) {
         if (name == null) {
             throw new NullPointerException("Retrieving a queue instance with a null key is not allowed!");

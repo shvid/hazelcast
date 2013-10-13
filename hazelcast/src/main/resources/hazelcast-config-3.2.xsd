@@ -21,7 +21,7 @@
            elementFormDefault="qualified"
            attributeFormDefault="unqualified">
 
-    <xs:include schemaLocation="http://www.hazelcast.com/schema/config/hazelcast-common-config-3.0.xsd"/>
+    <xs:include schemaLocation="http://www.hazelcast.com/schema/config/hazelcast-common-config-3.2.xsd"/>
 
     <xs:element name="hazelcast">
         <xs:complexType>
@@ -36,7 +36,10 @@
                 <xs:element name="executor-service" type="executor-service" minOccurs="0" maxOccurs="unbounded"/>
                 <xs:element name="queue" type="queue" minOccurs="0" maxOccurs="unbounded"/>
                 <xs:element name="map" type="map" minOccurs="0" maxOccurs="unbounded"/>
+                <xs:element name="replicated-map" type="replicated-map" minOccurs="0" maxOccurs="unbounded"/>
                 <xs:element name="multimap" type="multimap" minOccurs="0" maxOccurs="unbounded"/>
+                <xs:element name="list" type="list" minOccurs="0" maxOccurs="unbounded"/>
+                <xs:element name="set" type="set" minOccurs="0" maxOccurs="unbounded"/>
                 <xs:element name="topic" type="topic" minOccurs="0" maxOccurs="unbounded"/>
                 <xs:element name="semaphore" type="semaphore" minOccurs="0" maxOccurs="unbounded"/>
                 <xs:element name="listeners" type="listeners" minOccurs="0" maxOccurs="1"/>
@@ -190,6 +193,93 @@
         </xs:attribute>
     </xs:complexType>
 
+    <xs:complexType name="replicated-map">
+        <xs:sequence>
+            <xs:element name="in-memory-format" type="in-memory-format" minOccurs="0" maxOccurs="1" default="BINARY"/>
+            <xs:element name="statistics-enabled" type="xs:boolean" minOccurs="0" maxOccurs="1" default="true"/>
+            <xs:element name="consistency-level" type="consistency-level" minOccurs="0" maxOccurs="1" default="eventual">
+                <xs:annotation>
+                    <xs:documentation>
+                        The consistency-level defines the consistency guarantee of a replicated map. Possible values are
+                        'eventual' or any numerical value of 1 or higher.<br/>
+                        'eventual' means that all nodes are updated in asynchronous way so the nodes will all be
+                        eventually consistent.<br/>
+                        A numerical value gives the possibility to make a tradeoff-choice between the speed of a put and
+                        get operations. The higher the number is the more synchronous replications are done. The more
+                        synchronous replications happen the slower is the put operation.<br/>
+                        <b>Important to note:</b> Every value other than 'eventual' means strong consistency, but for
+                        lower values the first get operation may take a bit longer while the value may be requested from
+                        the owning node and is stored locally afterwards.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element name="time-to-live-seconds" type="xs:unsignedInt" minOccurs="0" maxOccurs="1" default="0">
+                <xs:annotation>
+                    <xs:documentation>
+                        Maximum number of seconds for each entry to stay in the map. Entries that are
+                        older than &lt;time-to-live-seconds&gt; and not updated for &lt;time-to-live-seconds&gt;
+                        will get automatically evicted from the map.
+                        Any integer between 0 and Integer.MAX_VALUE. 0 means infinite. Default is 0.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element name="merge-policy" type="xs:string" minOccurs="0" maxOccurs="1">
+                <xs:annotation>
+                    <xs:documentation>
+                        While recovering from split-brain (network partitioning), map entries in the small cluster will
+                        merge into the bigger cluster
+                        based on the policy set here. When an entry merge into the cluster, there might an existing
+                        entry with the same key already.
+                        Values of these entries might be different for that same key. Which value should be set for the
+                        key?
+                        Conflict is resolved by the policy set here.
+                        <p>
+                            <br/>There are built-in merge policies such as:
+                            <br/>com.hazelcast.map.merge.PassThroughMergePolicy; entry will be added if there is no
+                            existing entry for the key.
+                            <br/>com.hazelcast.map.merge.PutIfAbsentMapMergePolicy ; entry will be added if the merging
+                            entry doesn't exist in the cluster.
+                            <br/>com.hazelcast.map.merge.HigherHitsMapMergePolicy ; entry with the higher hits wins.
+                            <br/>com.hazelcast.map.merge.LatestUpdateMapMergePolicy ; entry with the latest update wins.
+                            <br/>Default policy is 'com.hazelcast.map.merge.PutIfAbsentMapMergePolicy'
+                        </p>
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element name="wan-replication-ref" minOccurs="0" maxOccurs="1">
+                <xs:complexType>
+                    <xs:sequence>
+                        <xs:element name="merge-policy" type="xs:string" minOccurs="1" maxOccurs="1"/>
+                    </xs:sequence>
+                    <xs:attribute name="name" type="xs:string" use="required"/>
+                </xs:complexType>
+            </xs:element>
+            <xs:element name="indexes" minOccurs="0" maxOccurs="1">
+                <xs:complexType>
+                    <xs:sequence>
+                        <xs:element name="index" type="index" minOccurs="0" maxOccurs="unbounded"/>
+                    </xs:sequence>
+                </xs:complexType>
+            </xs:element>
+            <xs:element name="entry-listeners" type="entry-listeners" minOccurs="0" maxOccurs="1"/>
+            <xs:element name="storage-type" type="xs:string" minOccurs="0" maxOccurs="1">
+                <xs:annotation>
+                    <xs:documentation>
+                        Storage type for Hazelcast Enterprise map configuration.
+                        Valid values are HEAP and OFFHEAP.
+                        Default is HEAP.
+                        Not configurable for Hazelcast Community Edition.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+        </xs:sequence>
+        <xs:attribute name="name" use="required">
+            <xs:simpleType>
+                <xs:restriction base="xs:string"/>
+            </xs:simpleType>
+        </xs:attribute>
+    </xs:complexType>
+
     <xs:complexType name="queue">
         <xs:sequence>
             <xs:element name="statistics-enabled" type="xs:boolean" minOccurs="0" maxOccurs="1"
@@ -222,6 +312,7 @@
     </xs:complexType>
     <xs:complexType name="multimap">
         <xs:sequence>
+            <xs:element name="backup-count" type="backup-count" minOccurs="0" maxOccurs="1" default="1"/>
             <xs:element name="statistics-enabled" type="xs:boolean" minOccurs="0" maxOccurs="1" default="true"/>
             <xs:element name="value-collection-type" minOccurs="0" maxOccurs="1">
                 <xs:simpleType>
@@ -232,6 +323,26 @@
                 </xs:simpleType>
             </xs:element>
             <xs:element name="entry-listeners" type="entry-listeners" minOccurs="0" maxOccurs="1"/>
+        </xs:sequence>
+        <xs:attribute name="name" use="required">
+            <xs:simpleType>
+                <xs:restriction base="xs:string"/>
+            </xs:simpleType>
+        </xs:attribute>
+    </xs:complexType>
+    <xs:complexType name="list">
+        <xs:sequence>
+            <xs:element name="backup-count" type="backup-count" minOccurs="0" maxOccurs="1" default="1"/>
+        </xs:sequence>
+        <xs:attribute name="name" use="required">
+            <xs:simpleType>
+                <xs:restriction base="xs:string"/>
+            </xs:simpleType>
+        </xs:attribute>
+    </xs:complexType>
+    <xs:complexType name="set">
+        <xs:sequence>
+            <xs:element name="backup-count" type="backup-count" minOccurs="0" maxOccurs="1" default="1"/>
         </xs:sequence>
         <xs:attribute name="name" use="required">
             <xs:simpleType>

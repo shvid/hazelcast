@@ -45,8 +45,10 @@ public final class MapDataSerializerHook implements DataSerializerHook {
     public static final int MAP_STATS = 12;
     public static final int QUERY_RESULT_ENTRY = 13;
     public static final int QUERY_RESULT_SET = 14;
+    public static final int PUT_REPLICATED_MAP = 15;
+    public static final int REMOVE_REPLICATED_MAP = 16;
 
-    private static final int LEN = QUERY_RESULT_SET + 1;
+    private static final int LEN = REMOVE_REPLICATED_MAP + 1;
 
     public int getFactoryId() {
         return F_ID;
@@ -78,6 +80,17 @@ public final class MapDataSerializerHook implements DataSerializerHook {
         constructors[REMOVE_BACKUP] = new ConstructorFunction<Integer, IdentifiedDataSerializable>() {
             public IdentifiedDataSerializable createNew(Integer arg) {
                 return new RemoveBackupOperation();
+            }
+        };
+
+        constructors[PUT_REPLICATED_MAP] = new ConstructorFunction<Integer, IdentifiedDataSerializable>() {
+            public IdentifiedDataSerializable createNew(Integer arg) {
+                return new PutReplicateOperation();
+            }
+        };
+        constructors[REMOVE_REPLICATED_MAP] = new ConstructorFunction<Integer, IdentifiedDataSerializable>() {
+            public IdentifiedDataSerializable createNew(Integer arg) {
+                return new RemoveReplicateOperation();
             }
         };
 

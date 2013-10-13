@@ -19,6 +19,7 @@ package com.hazelcast.map;
 import com.hazelcast.cluster.ClusterService;
 import com.hazelcast.concurrent.lock.LockService;
 import com.hazelcast.concurrent.lock.LockStoreInfo;
+import com.hazelcast.config.DistributionStrategyConfig;
 import com.hazelcast.config.ExecutorConfig;
 import com.hazelcast.config.MapConfig;
 import com.hazelcast.config.MaxSizeConfig;
@@ -28,6 +29,7 @@ import com.hazelcast.logging.ILogger;
 import com.hazelcast.map.merge.*;
 import com.hazelcast.map.operation.*;
 import com.hazelcast.map.proxy.MapProxyImpl;
+import com.hazelcast.map.proxy.ReplicatedMapProxyImpl;
 import com.hazelcast.map.record.*;
 import com.hazelcast.map.tx.TransactionalMapProxy;
 import com.hazelcast.map.wan.MapReplicationRemove;
@@ -67,6 +69,7 @@ public class MapService implements ManagedService, MigrationAwareService,
         PostJoinAwareService, SplitBrainHandlerService, ReplicationSupportingService {
 
     public final static String SERVICE_NAME = "hz:impl:mapService";
+    public final static String REPLICATED_MAP_BASE_NAME = "hz:impl:replicatedMap-";
 
     private final ILogger logger;
     private final NodeEngine nodeEngine;
@@ -451,7 +454,13 @@ public class MapService implements ManagedService, MigrationAwareService,
     }
 
     public MapProxyImpl createDistributedObject(String name) {
-        return new MapProxyImpl(name, this, nodeEngine);
+        MapConfig config = getMapContainer(name).getMapConfig();
+        DistributionStrategyConfig distributionStrategyConfig = config.getDistributionStrategyConfig();
+        if (distributionStrategyConfig == DistributionStrategyConfig.Partitioned) {
+            return new MapProxyImpl(name, this, nodeEngine);
+        } else {
+            return new ReplicatedMapProxyImpl(config.getName(), this, nodeEngine);
+        }
     }
 
     public void destroyDistributedObject(String name) {

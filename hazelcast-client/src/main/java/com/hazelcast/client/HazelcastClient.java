@@ -220,6 +220,11 @@ public final class HazelcastClient implements HazelcastInstance {
     }
 
     @Override
+    public <K, V> IReplicatedMap<K, V> getReplicatedMap(String name) {
+        return getDistributedObject(MapService.SERVICE_NAME, MapService.REPLICATED_MAP_BASE_NAME + name);
+    }
+
+    @Override
     public <K, V> MultiMap<K, V> getMultiMap(String name) {
         return getDistributedObject(MultiMapService.SERVICE_NAME, name);
     }

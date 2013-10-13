@@ -49,6 +49,10 @@ public final class HazelcastInstanceProxy implements HazelcastInstance {
         return getOriginal().getMap(name);
     }
 
+    public <K, V> IReplicatedMap<K, V> getReplicatedMap(String name) {
+        return getOriginal().getReplicatedMap(name);
+    }
+
     public <E> IQueue<E> getQueue(String name) {
         return getOriginal().getQueue(name);
     }
