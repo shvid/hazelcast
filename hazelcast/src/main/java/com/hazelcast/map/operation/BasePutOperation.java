@@ -56,18 +56,15 @@ public abstract class BasePutOperation extends LockAwareOperation implements Bac
             mapService.publishWanReplicationUpdate(name, entryView);
         }
         if (mapContainer.getMapConfig() instanceof ReplicatedMapConfigAdapter) {
-            ReplicatedMapConfigAdapter configAdapter = (ReplicatedMapConfigAdapter) mapContainer.getMapConfig();
-            if (configAdapter.getDistributionStrategyConfig() == DistributionStrategyConfig.Distributed) {
-                NodeEngine nodeEngine = mapService.getNodeEngine();
-                PartitionView partitionView = nodeEngine.getPartitionService().getPartition(getPartitionId());
-                for (MemberImpl member : nodeEngine.getClusterService().getMemberList()) {
-                    Address address = member.getAddress();
-                    if (!partitionView.isBackup(address)) {
-                        OperationService os = nodeEngine.getOperationService();
-                        Operation op = new PutReplicateOperation(name, dataKey, dataValue, ttl);
-                        op.setPartitionId(getPartitionId()).setServiceName(getServiceName());
-                        os.send(op, address);
-                    }
+            NodeEngine nodeEngine = mapService.getNodeEngine();
+            PartitionView partitionView = nodeEngine.getPartitionService().getPartition(getPartitionId());
+            for (MemberImpl member : nodeEngine.getClusterService().getMemberList()) {
+                Address address = member.getAddress();
+                if (!partitionView.isBackup(address)) {
+                    OperationService os = nodeEngine.getOperationService();
+                    Operation op = new PutReplicateOperation(name, dataKey, dataValue, ttl);
+                    op.setPartitionId(getPartitionId()).setServiceName(getServiceName());
+                    os.send(op, address);
                 }
             }
         }
