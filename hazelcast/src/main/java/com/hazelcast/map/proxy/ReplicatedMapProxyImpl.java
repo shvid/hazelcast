@@ -56,7 +56,7 @@ public class ReplicatedMapProxyImpl<K, V>
 
     public ReplicatedMapProxyImpl(String name, MapService service, NodeEngine nodeEngine) {
         super(name, service, nodeEngine);
-        this.distributionStrategyConfig = mapConfig.getDistributionStrategyConfig();
+        this.distributionStrategyConfig = ((ReplicatedMapConfigAdapter) mapConfig).getDistributionStrategyConfig();
         this.partitionService = nodeEngine.getPartitionService();
         this.nodeEngine = nodeEngine;
         this.inMemoryFormat = mapConfig.getInMemoryFormat();

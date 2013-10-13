@@ -22,6 +22,7 @@ import com.hazelcast.config.PermissionConfig.PermissionType;
 import com.hazelcast.core.HazelcastException;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
+import com.hazelcast.map.MapService;
 import com.hazelcast.nio.ClassLoaderUtil;
 import com.hazelcast.nio.IOUtil;
 import com.hazelcast.spi.ServiceConfigurationParser;
@@ -279,6 +280,8 @@ public class XmlConfigBuilder extends AbstractXmlConfigHelper implements ConfigB
                 handleQueue(node);
             } else if ("map".equals(nodeName)) {
                 handleMap(node);
+            } else if ("replicated-map".equals(nodeName)) {
+                handleReplicatedMap(node);
             } else if ("multimap".equals(nodeName)) {
                 handleMultiMap(node);
             } else if ("list".equals(nodeName)) {
@@ -912,6 +915,66 @@ public class XmlConfigBuilder extends AbstractXmlConfigHelper implements ConfigB
             }
         }
         return mapStoreConfig;
+    }
+
+    private void handleReplicatedMap(final org.w3c.dom.Node node) throws Exception {
+        final String name = MapService.REPLICATED_MAP_BASE_NAME + getAttribute(node, "name");
+        final ReplicatedMapConfig replicatedMapConfig = new ReplicatedMapConfig();
+        replicatedMapConfig.setName(name);
+        for (org.w3c.dom.Node n : new IterableNodeList(node.getChildNodes())) {
+            final String nodeName = cleanNodeName(n.getNodeName());
+            final String value = getTextContent(n).trim();
+            if ("consistency-level".equals(nodeName)) {
+                if ("eventual".equals(value.toLowerCase())) {
+                    replicatedMapConfig.setDistributionStrategyConfig(DistributionStrategyConfig.Distributed);
+                    replicatedMapConfig.setConsistencyLevel(1);
+                } else {
+                    int consistencyLevel = getIntegerValue("consistency-level", value, ReplicatedMapConfig.DEFAULT_CONSISTENCY_LEVEL);
+                    replicatedMapConfig.setDistributionStrategyConfig(DistributionStrategyConfig.Replicated);
+                    replicatedMapConfig.setConsistencyLevel(consistencyLevel);
+                }
+            } else if ("in-memory-format".equals(nodeName)) {
+                replicatedMapConfig.setInMemoryFormat(InMemoryFormat.valueOf(value));
+            } else if ("time-to-live-seconds".equals(nodeName)) {
+                replicatedMapConfig.setTimeToLiveSeconds(getIntegerValue("time-to-live-seconds", value, MapConfig.DEFAULT_TTL_SECONDS));
+            } else if ("statistics-enabled".equals(nodeName)) {
+                replicatedMapConfig.setStatisticsEnabled(checkTrue(value));
+            } else if ("wan-replication-ref".equals(nodeName)) {
+                WanReplicationRef wanReplicationRef = new WanReplicationRef();
+                final String wanName = getAttribute(n, "name");
+                wanReplicationRef.setName(wanName);
+                for (org.w3c.dom.Node wanChild : new IterableNodeList(n.getChildNodes())) {
+                    final String wanChildName = cleanNodeName(wanChild.getNodeName());
+                    final String wanChildValue = getTextContent(n);
+                    if ("merge-policy".equals(wanChildName)) {
+                        wanReplicationRef.setMergePolicy(wanChildValue);
+                    }
+                }
+                replicatedMapConfig.setWanReplicationRef(wanReplicationRef);
+            } else if ("indexes".equals(nodeName)) {
+                for (org.w3c.dom.Node indexNode : new IterableNodeList(n.getChildNodes())) {
+                    if ("index".equals(cleanNodeName(indexNode))) {
+                        final NamedNodeMap attrs = indexNode.getAttributes();
+                        boolean ordered = checkTrue(getTextContent(attrs.getNamedItem("ordered")));
+                        String attribute = getTextContent(indexNode);
+                        replicatedMapConfig.addMapIndexConfig(new MapIndexConfig(attribute, ordered));
+                    }
+                }
+            } else if ("entry-listeners".equals(nodeName)) {
+                for (org.w3c.dom.Node listenerNode : new IterableNodeList(n.getChildNodes())) {
+                    if ("entry-listener".equals(cleanNodeName(listenerNode))) {
+                        final NamedNodeMap attrs = listenerNode.getAttributes();
+                        boolean incValue = checkTrue(getTextContent(attrs.getNamedItem("include-value")));
+                        boolean local = checkTrue(getTextContent(attrs.getNamedItem("local")));
+                        String listenerClass = getTextContent(listenerNode);
+                        replicatedMapConfig.addEntryListenerConfig(new EntryListenerConfig(listenerClass, local, incValue));
+                    }
+                }
+            } else if ("partition-strategy".equals(nodeName)) {
+                replicatedMapConfig.setPartitioningStrategyConfig(new PartitioningStrategyConfig(value));
+            }
+        }
+        this.config.addReplicatedMapConfig(replicatedMapConfig);
     }
 
     private QueueStoreConfig createQueueStoreConfig(final org.w3c.dom.Node node) {

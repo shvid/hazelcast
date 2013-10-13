@@ -18,6 +18,7 @@ package com.hazelcast.config;
 
 import com.hazelcast.core.HazelcastException;
 import com.hazelcast.core.ManagedContext;
+import com.hazelcast.map.MapService;
 
 import java.io.File;
 import java.net.URL;
@@ -46,6 +47,8 @@ public class Config {
     private NetworkConfig networkConfig = new NetworkConfig();
 
     private final Map<String, MapConfig> mapConfigs = new ConcurrentHashMap<String, MapConfig>();
+
+    private final Map<String, ReplicatedMapConfig> replicatedMapConfigs = new ConcurrentHashMap<String, ReplicatedMapConfig>();
 
     private final Map<String, TopicConfig> topicConfigs = new ConcurrentHashMap<String, TopicConfig>();
 
@@ -194,6 +197,46 @@ public class Config {
         this.mapConfigs.clear();
         this.mapConfigs.putAll(mapConfigs);
         for (final Entry<String, MapConfig> entry : this.mapConfigs.entrySet()) {
+            entry.getValue().setName(entry.getKey());
+        }
+        return this;
+    }
+
+    public ReplicatedMapConfig getReplicatedMapConfig(String name) {
+        name = MapService.REPLICATED_MAP_BASE_NAME + getBaseName(name);
+        ReplicatedMapConfig config;
+        if ((config = lookupByPattern(replicatedMapConfigs, name)) != null) return config;
+        ReplicatedMapConfig defConfig = replicatedMapConfigs.get("default");
+        if (defConfig == null) {
+            defConfig = new ReplicatedMapConfig();
+            defConfig.setName("default");
+            addReplicatedMapConfig(defConfig);
+        }
+        config = new ReplicatedMapConfig(defConfig);
+        config.setName(name);
+        addReplicatedMapConfig(config);
+        return config;
+    }
+
+    public Config addReplicatedMapConfig(ReplicatedMapConfig replicatedMapConfig) {
+        replicatedMapConfigs.put(replicatedMapConfig.getName(), replicatedMapConfig);
+        return this;
+    }
+
+    /**
+     * @return the replicatedMapConfigs
+     */
+    public Map<String, ReplicatedMapConfig> getReplicatedMapConfigs() {
+        return replicatedMapConfigs;
+    }
+
+    /**
+     * @param replicatedMapConfigs the replicatedMapConfigs to set
+     */
+    public Config setReplicatedMapConfigs(Map<String, ReplicatedMapConfig> replicatedMapConfigs) {
+        this.replicatedMapConfigs.clear();
+        this.replicatedMapConfigs.putAll(replicatedMapConfigs);
+        for (final Entry<String, ReplicatedMapConfig> entry : this.replicatedMapConfigs.entrySet()) {
             entry.getValue().setName(entry.getKey());
         }
         return this;

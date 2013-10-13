@@ -20,6 +20,7 @@ import com.hazelcast.config.DistributionStrategyConfig;
 import com.hazelcast.core.EntryEventType;
 import com.hazelcast.core.Member;
 import com.hazelcast.instance.MemberImpl;
+import com.hazelcast.map.ReplicatedMapConfigAdapter;
 import com.hazelcast.map.SimpleEntryView;
 import com.hazelcast.map.record.Record;
 import com.hazelcast.nio.Address;
@@ -54,16 +55,19 @@ public abstract class BasePutOperation extends LockAwareOperation implements Bac
             SimpleEntryView entryView = new SimpleEntryView(dataKey, mapService.toData(dataValue), record.getStatistics(), record.getVersion());
             mapService.publishWanReplicationUpdate(name, entryView);
         }
-        if (mapContainer.getMapConfig().getDistributionStrategyConfig() == DistributionStrategyConfig.Distributed) {
-            NodeEngine nodeEngine = mapService.getNodeEngine();
-            PartitionView partitionView = nodeEngine.getPartitionService().getPartition(getPartitionId());
-            for (MemberImpl member : nodeEngine.getClusterService().getMemberList()) {
-                Address address = member.getAddress();
-                if (!partitionView.isBackup(address)) {
-                    OperationService os = nodeEngine.getOperationService();
-                    Operation op = new PutReplicateOperation(name, dataKey, dataValue, ttl);
-                    op.setPartitionId(getPartitionId()).setServiceName(getServiceName());
-                    os.send(op, address);
+        if (mapContainer.getMapConfig() instanceof ReplicatedMapConfigAdapter) {
+            ReplicatedMapConfigAdapter configAdapter = (ReplicatedMapConfigAdapter) mapContainer.getMapConfig();
+            if (configAdapter.getDistributionStrategyConfig() == DistributionStrategyConfig.Distributed) {
+                NodeEngine nodeEngine = mapService.getNodeEngine();
+                PartitionView partitionView = nodeEngine.getPartitionService().getPartition(getPartitionId());
+                for (MemberImpl member : nodeEngine.getClusterService().getMemberList()) {
+                    Address address = member.getAddress();
+                    if (!partitionView.isBackup(address)) {
+                        OperationService os = nodeEngine.getOperationService();
+                        Operation op = new PutReplicateOperation(name, dataKey, dataValue, ttl);
+                        op.setPartitionId(getPartitionId()).setServiceName(getServiceName());
+                        os.send(op, address);
+                    }
                 }
             }
         }

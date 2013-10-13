@@ -76,8 +76,6 @@ public class MapConfig {
 
     private boolean statisticsEnabled = true;
 
-    private DistributionStrategyConfig distributionStrategyConfig;
-
     private PartitioningStrategyConfig partitioningStrategyConfig;
 
     public enum EvictionPolicy {
@@ -405,15 +403,6 @@ public class MapConfig {
 
     public MapConfig setPartitioningStrategyConfig(PartitioningStrategyConfig partitioningStrategyConfig) {
         this.partitioningStrategyConfig = partitioningStrategyConfig;
-        return this;
-    }
-
-    public DistributionStrategyConfig getDistributionStrategyConfig() {
-        return distributionStrategyConfig;
-    }
-
-    public MapConfig setDistributionStrategyConfig(DistributionStrategyConfig distributionStrategyConfig) {
-        this.distributionStrategyConfig = distributionStrategyConfig;
         return this;
     }
 

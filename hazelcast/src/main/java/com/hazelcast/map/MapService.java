@@ -19,10 +19,7 @@ package com.hazelcast.map;
 import com.hazelcast.cluster.ClusterService;
 import com.hazelcast.concurrent.lock.LockService;
 import com.hazelcast.concurrent.lock.LockStoreInfo;
-import com.hazelcast.config.DistributionStrategyConfig;
-import com.hazelcast.config.ExecutorConfig;
-import com.hazelcast.config.MapConfig;
-import com.hazelcast.config.MaxSizeConfig;
+import com.hazelcast.config.*;
 import com.hazelcast.core.*;
 import com.hazelcast.instance.MemberImpl;
 import com.hazelcast.logging.ILogger;
@@ -180,6 +177,12 @@ public class MapService implements ManagedService, MigrationAwareService,
 
     private final ConstructorFunction<String, MapContainer> mapConstructor = new ConstructorFunction<String, MapContainer>() {
         public MapContainer createNew(String mapName) {
+            if (mapName.startsWith(REPLICATED_MAP_BASE_NAME)) {
+                String baseName = mapName.replace(REPLICATED_MAP_BASE_NAME, "");
+                ReplicatedMapConfig replicatedMapConfig = nodeEngine.getConfig().getReplicatedMapConfig(baseName);
+                MapConfig mapConfig = new ReplicatedMapConfigAdapter(replicatedMapConfig);
+                return new MapContainer(mapName, mapConfig, MapService.this);
+            }
             return new MapContainer(mapName, nodeEngine.getConfig().getMapConfig(mapName), MapService.this);
         }
     };
@@ -454,13 +457,14 @@ public class MapService implements ManagedService, MigrationAwareService,
     }
 
     public MapProxyImpl createDistributedObject(String name) {
+        if (name.startsWith(REPLICATED_MAP_BASE_NAME)) {
+
+        }
         MapConfig config = getMapContainer(name).getMapConfig();
-        DistributionStrategyConfig distributionStrategyConfig = config.getDistributionStrategyConfig();
-        if (distributionStrategyConfig == DistributionStrategyConfig.Partitioned) {
-            return new MapProxyImpl(name, this, nodeEngine);
-        } else {
+        if (config instanceof ReplicatedMapConfigAdapter) {
             return new ReplicatedMapProxyImpl(config.getName(), this, nodeEngine);
         }
+        return new MapProxyImpl(name, this, nodeEngine);
     }
 
     public void destroyDistributedObject(String name) {

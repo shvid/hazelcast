@@ -19,5 +19,5 @@ package com.hazelcast.config;
  */
 
 public enum DistributionStrategyConfig {
-    Partitioned, Replicated, Distributed
+    Replicated, Distributed
 }
