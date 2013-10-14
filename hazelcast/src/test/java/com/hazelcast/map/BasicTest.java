@@ -621,7 +621,7 @@ public class BasicTest extends HazelcastTestSupport {
     }
 
     @Test
-    public void testEntryView() {
+    public void testEntryView() throws Exception {
         Config config = new Config();
         config.getReplicatedMapConfig("default").setStatisticsEnabled(true);
         final IReplicatedMap<Integer, Integer> map = getReplicatedMap("testEntryView");
@@ -634,7 +634,7 @@ public class BasicTest extends HazelcastTestSupport {
         map.get(3);
         long time3 = Clock.currentTimeMillis();
         map.put(2, 22);
-
+        
         EntryView<Integer, Integer> entryView1 = map.getEntryView(1);
         EntryView<Integer, Integer> entryView2 = map.getEntryView(2);
         EntryView<Integer, Integer> entryView3 = map.getEntryView(3);

@@ -17,16 +17,21 @@
 package com.hazelcast.map.operation;
 
 import com.hazelcast.core.EntryEventType;
+import com.hazelcast.instance.MemberImpl;
 import com.hazelcast.map.MapEntrySet;
 import com.hazelcast.map.RecordStore;
+import com.hazelcast.map.ReplicatedMapConfigAdapter;
 import com.hazelcast.map.SimpleEntryView;
 import com.hazelcast.map.record.Record;
+import com.hazelcast.nio.Address;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.Data;
 import com.hazelcast.partition.PartitionService;
 import com.hazelcast.spi.BackupAwareOperation;
+import com.hazelcast.spi.NodeEngine;
 import com.hazelcast.spi.Operation;
+import com.hazelcast.spi.OperationService;
 import com.hazelcast.spi.PartitionAwareOperation;
 
 import java.io.IOException;
@@ -73,8 +78,23 @@ public class PutAllOperation extends AbstractMapOperation implements PartitionAw
                 }
                 mapService.interceptAfterPut(name, dataValue);
                 EntryEventType eventType = dataOldValue == null ? EntryEventType.ADDED : EntryEventType.UPDATED;
-                mapService.publishEvent(getCallerAddress(), name, eventType, dataKey, dataOldValue, dataValue);
-                invalidateNearCaches(dataKey);
+                if (!(mapContainer.getMapConfig() instanceof ReplicatedMapConfigAdapter)) {
+                	mapService.publishEvent(getCallerAddress(), name, eventType, dataKey, dataOldValue, dataValue);
+                    invalidateNearCaches(dataKey);
+                } else {
+                    NodeEngine nodeEngine = mapService.getNodeEngine();
+                    for (MemberImpl member : nodeEngine.getClusterService().getMemberList()) {
+                        Address address = member.getAddress();
+                        if (!nodeEngine.getThisAddress().equals(address)) {
+                            OperationService os = nodeEngine.getOperationService();
+                            Operation op = new RemoveReplicateOperation(name, dataKey);
+                            op.setPartitionId(getPartitionId()).setServiceName(getServiceName());
+                            os.send(op, address);
+                        } else {
+                        	mapService.publishReplicatedEvent(name, EntryEventType.REMOVED, dataKey, dataOldValue, dataValue);
+                        }
+                    }
+                }
                 if (mapContainer.getWanReplicationPublisher() != null && mapContainer.getWanMergePolicy() != null) {
                     Record record = recordStore.getRecord(dataKey);
                     SimpleEntryView entryView = new SimpleEntryView(dataKey, mapService.toData(dataValue), record.getStatistics(), record.getVersion());
