@@ -16,32 +16,55 @@
 
 package com.hazelcast.map;
 
-import com.hazelcast.config.Config;
-import com.hazelcast.config.MapConfig;
-import com.hazelcast.config.MapIndexConfig;
-import com.hazelcast.config.MapStoreConfig;
-import com.hazelcast.core.*;
-import com.hazelcast.query.Predicate;
-import com.hazelcast.query.SqlPredicate;
-import com.hazelcast.test.HazelcastJUnit4ClassRunner;
-import com.hazelcast.test.HazelcastTestSupport;
-import com.hazelcast.test.TestHazelcastInstanceFactory;
-import com.hazelcast.test.annotation.ParallelTest;
-import com.hazelcast.util.Clock;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
+import java.io.Serializable;
+import java.util.AbstractMap;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Random;
+import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 import org.junit.runner.RunWith;
 
-import java.io.Serializable;
-import java.util.*;
-import java.util.Map.Entry;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.junit.Assert.*;
+import com.hazelcast.config.Config;
+import com.hazelcast.core.EntryAdapter;
+import com.hazelcast.core.EntryEvent;
+import com.hazelcast.core.EntryListener;
+import com.hazelcast.core.EntryView;
+import com.hazelcast.core.HazelcastInstance;
+import com.hazelcast.core.IReplicatedMap;
+import com.hazelcast.core.MapLoader;
+import com.hazelcast.core.MapStoreFactory;
+import com.hazelcast.monitor.LocalMapStats;
+import com.hazelcast.query.Predicate;
+import com.hazelcast.test.HazelcastJUnit4ClassRunner;
+import com.hazelcast.test.HazelcastTestSupport;
+import com.hazelcast.test.TestHazelcastInstanceFactory;
+import com.hazelcast.test.annotation.ParallelTest;
+import com.hazelcast.util.Clock;
 
 @RunWith(HazelcastJUnit4ClassRunner.class)
 @Category(ParallelTest.class)
@@ -59,13 +82,18 @@ public class BasicTest extends HazelcastTestSupport {
         instances = factory.newInstances(config);
     }
 
-    private HazelcastInstance getInstance() {
+    private HazelcastInstance getInstance0() {
         return instances[rand.nextInt(instanceCount)];
+    }
+    
+    private <K, V> IReplicatedMap<K, V> getReplicatedMap(String name) {
+    	HazelcastInstance hz = getInstance0();
+    	return new ReplicatedMapWrapper<K, V>(hz.<K, V> getReplicatedMap(name));
     }
 
     @Test
     public void testMapPutAndGet() {
-        IMap<String, String> map = getInstance().getMap("testMapPutAndGet");
+        IReplicatedMap<String, String> map = getReplicatedMap("testMapPutAndGet");
         String value = map.put("Hello", "World");
         assertEquals("World", map.get("Hello"));
         assertEquals(1, map.size());
@@ -81,7 +109,7 @@ public class BasicTest extends HazelcastTestSupport {
 
     @Test
     public void testMapPutIfAbsent() {
-        IMap<String, String> map = getInstance().getMap("testMapPutIfAbsent");
+        IReplicatedMap<String, String> map = getReplicatedMap("testMapPutIfAbsent");
         assertEquals(map.putIfAbsent("key1", "value1"), null);
         assertEquals(map.putIfAbsent("key2", "value2"), null);
         assertEquals(map.putIfAbsent("key1", "valueX"), "value1");
@@ -91,7 +119,7 @@ public class BasicTest extends HazelcastTestSupport {
 
     @Test
     public void testMapGetNullIsNotAllowed() {
-        IMap<String, String> map = getInstance().getMap("testMapGetNullIsNotAllowed");
+        IReplicatedMap<String, String> map = getReplicatedMap("testMapGetNullIsNotAllowed");
         try {
             map.get(null);
             fail();
@@ -103,7 +131,7 @@ public class BasicTest extends HazelcastTestSupport {
 
     @Test
     public void valuesToArray() {
-        IMap<String, String> map = getInstance().getMap("valuesToArray");
+        IReplicatedMap<String, String> map = getReplicatedMap("valuesToArray");
         assertEquals(0, map.size());
         map.put("a", "1");
         map.put("b", "2");
@@ -133,7 +161,7 @@ public class BasicTest extends HazelcastTestSupport {
 
     @Test
     public void testMapEvictAndListener() throws InterruptedException {
-        IMap<String, String> map = getInstance().getMap("testMapEvictAndListener");
+        IReplicatedMap<String, String> map = getReplicatedMap("testMapEvictAndListener");
         final String value1 = "/home/data/file1.dat";
         final String value2 = "/home/data/file2.dat";
 
@@ -164,7 +192,7 @@ public class BasicTest extends HazelcastTestSupport {
 
     @Test
     public void testMapEntryListener() {
-        IMap<String, String> map = getInstance().getMap("testMapEntryListener");
+        IReplicatedMap<String, String> map = getReplicatedMap("testMapEntryListener");
         final CountDownLatch latchAdded = new CountDownLatch(1);
         final CountDownLatch latchRemoved = new CountDownLatch(1);
         final CountDownLatch latchUpdated = new CountDownLatch(1);
@@ -210,7 +238,7 @@ public class BasicTest extends HazelcastTestSupport {
      */
     @Test
     public void testMapKeyListenerWithRemoveAndUnlock() throws InterruptedException {
-        IMap<String, String> map = getInstance().getMap("testMapKeyListenerWithRemoveAndUnlock");
+        IReplicatedMap<String, String> map = getReplicatedMap("testMapKeyListenerWithRemoveAndUnlock");
         final String key = "key";
         final int count = 20;
         final CountDownLatch latch = new CountDownLatch(count * 2);
@@ -245,11 +273,11 @@ public class BasicTest extends HazelcastTestSupport {
 
     @Test
     public void testMapEntrySetWhenRemoved() {
-        IMap<String, String> map = getInstance().getMap("testMapEntrySetWhenRemoved");
+        IReplicatedMap<String, String> map = getReplicatedMap("testMapEntrySetWhenRemoved");
         map.put("Hello", "World");
         map.remove("Hello");
-        Set<IMap.Entry<String, String>> set = map.entrySet();
-        for (IMap.Entry<String, String> e : set) {
+        Set<IReplicatedMap.Entry<String, String>> set = map.entrySet();
+        for (IReplicatedMap.Entry<String, String> e : set) {
             fail("Iterator should not contain removed entry, found " + e.getKey());
         }
     }
@@ -257,7 +285,7 @@ public class BasicTest extends HazelcastTestSupport {
 
     @Test
     public void testMapRemove() {
-        IMap<String, String> map = getInstance().getMap("testMapRemove");
+        IReplicatedMap<String, String> map = getReplicatedMap("testMapRemove");
         map.put("key1", "value1");
         map.put("key2", "value2");
         map.put("key3", "value3");
@@ -271,7 +299,7 @@ public class BasicTest extends HazelcastTestSupport {
 
     @Test
     public void testMapDelete() {
-        IMap<String, String> map = getInstance().getMap("testMapRemove");
+        IReplicatedMap<String, String> map = getReplicatedMap("testMapRemove");
         map.put("key1", "value1");
         map.put("key2", "value2");
         map.put("key3", "value3");
@@ -285,7 +313,7 @@ public class BasicTest extends HazelcastTestSupport {
 
     @Test
     public void testMapClear() {
-        IMap<String, String> map = getInstance().getMap("testMapClear");
+        IReplicatedMap<String, String> map = getReplicatedMap("testMapClear");
         map.put("key1", "value1");
         map.put("key2", "value2");
         map.put("key3", "value3");
@@ -298,7 +326,7 @@ public class BasicTest extends HazelcastTestSupport {
 
     @Test
     public void testMapEvict() {
-        IMap<String, String> map = getInstance().getMap("testMapEvict");
+        IReplicatedMap<String, String> map = getReplicatedMap("testMapEvict");
         map.put("key1", "value1");
         map.put("key2", "value2");
         map.put("key3", "value3");
@@ -312,7 +340,7 @@ public class BasicTest extends HazelcastTestSupport {
 
     @Test
     public void testMapTryRemove() throws InterruptedException {
-        final IMap<Object, Object> map = getInstance().getMap("testMapTryRemove");
+        final IReplicatedMap<Object, Object> map = getReplicatedMap("testMapTryRemove");
         map.put("key1", "value1");
         map.lock("key1");
         final CountDownLatch latch1 = new CountDownLatch(1);
@@ -346,7 +374,7 @@ public class BasicTest extends HazelcastTestSupport {
 
     @Test
     public void testMapRemoveIfSame() {
-        IMap<String, String> map = getInstance().getMap("testMapRemoveIfSame");
+        IReplicatedMap<String, String> map = getReplicatedMap("testMapRemoveIfSame");
         map.put("key1", "value1");
         map.put("key2", "value2");
         map.put("key3", "value3");
@@ -362,7 +390,7 @@ public class BasicTest extends HazelcastTestSupport {
 
     @Test
     public void testMapSet() {
-        IMap<String, String> map = getInstance().getMap("testMapSet");
+        IReplicatedMap<String, String> map = getReplicatedMap("testMapSet");
         map.put("key1", "value1");
         assertEquals(map.get("key1"), "value1");
         assertEquals(map.size(), 1);
@@ -378,7 +406,7 @@ public class BasicTest extends HazelcastTestSupport {
 
     @Test
     public void testMapContainsKey() {
-        IMap<String, String> map = getInstance().getMap("testMapContainsKey");
+        IReplicatedMap<String, String> map = getReplicatedMap("testMapContainsKey");
         map.put("key1", "value1");
         map.put("key2", "value2");
         map.put("key3", "value3");
@@ -391,21 +419,24 @@ public class BasicTest extends HazelcastTestSupport {
     }
 
     @Test
-    public void testMapKeySet() {
-        IMap<String, String> map = getInstance().getMap("testMapKeySet");
+    public void testMapKeySet() throws Exception {
+        IReplicatedMap<String, String> map = getReplicatedMap("testMapKeySet");
         map.put("key1", "value1");
         map.put("key2", "value2");
         map.put("key3", "value3");
+        
+        Thread.sleep(2500);
+        
         HashSet<String> actual = new HashSet<String>();
         actual.add("key1");
         actual.add("key2");
         actual.add("key3");
-        assertEquals(map.keySet(), actual);
+        assertEquals(actual, map.keySet());
     }
 
     @Test
     public void testMapLocalKeySet() {
-        IMap<String, String> map = getInstance().getMap("testMapKeySet");
+        IReplicatedMap<String, String> map = getReplicatedMap("testMapKeySet");
         map.put("key1", "value1");
         map.put("key2", "value2");
         map.put("key3", "value3");
@@ -418,7 +449,7 @@ public class BasicTest extends HazelcastTestSupport {
 
     @Test
     public void testMapValues() {
-        IMap<String, String> map = getInstance().getMap("testMapValues");
+        IReplicatedMap<String, String> map = getReplicatedMap("testMapValues");
         map.put("key1", "value1");
         map.put("key2", "value2");
         map.put("key3", "value3");
@@ -436,7 +467,7 @@ public class BasicTest extends HazelcastTestSupport {
 
     @Test
     public void testMapContainsValue() {
-        IMap map = getInstance().getMap("testMapContainsValue");
+        IReplicatedMap map = getReplicatedMap("testMapContainsValue");
         map.put(1, 1);
         map.put(2, 2);
         map.put(3, 3);
@@ -450,7 +481,7 @@ public class BasicTest extends HazelcastTestSupport {
 
     @Test
     public void testMapIsEmpty() {
-        IMap<String, String> map = getInstance().getMap("testMapIsEmpty");
+        IReplicatedMap<String, String> map = getReplicatedMap("testMapIsEmpty");
         assertTrue(map.isEmpty());
         map.put("key1", "value1");
         assertFalse(map.isEmpty());
@@ -460,7 +491,7 @@ public class BasicTest extends HazelcastTestSupport {
 
     @Test
     public void testMapSize() {
-        IMap map = getInstance().getMap("testMapSize");
+        IReplicatedMap map = getReplicatedMap("testMapSize");
         assertEquals(map.size(), 0);
         map.put(1, 1);
         assertEquals(map.size(), 1);
@@ -471,7 +502,7 @@ public class BasicTest extends HazelcastTestSupport {
 
     @Test
     public void testMapReplace() {
-        IMap map = getInstance().getMap("testMapReplace");
+        IReplicatedMap map = getReplicatedMap("testMapReplace");
         map.put(1, 1);
         assertNull(map.replace(2, 1));
         assertNull(map.get(2));
@@ -482,7 +513,7 @@ public class BasicTest extends HazelcastTestSupport {
 
     @Test
     public void testMapReplaceIfSame() {
-        IMap map = getInstance().getMap("testMapReplaceIfSame");
+        IReplicatedMap map = getReplicatedMap("testMapReplaceIfSame");
         map.put(1, 1);
         assertFalse(map.replace(1, 2, 3));
         assertTrue(map.replace(1, 1, 2));
@@ -496,7 +527,7 @@ public class BasicTest extends HazelcastTestSupport {
 
     @Test
     public void testMapLockAndUnlockAndTryLock() throws InterruptedException {
-        final IMap<Object, Object> map = getInstance().getMap("testMapLockAndUnlockAndTryLock");
+        final IReplicatedMap<Object, Object> map = getReplicatedMap("testMapLockAndUnlockAndTryLock");
         map.lock("key0");
         map.lock("key1");
         map.lock("key2");
@@ -546,7 +577,7 @@ public class BasicTest extends HazelcastTestSupport {
 
     @Test
     public void testMapIsLocked() throws InterruptedException {
-        final IMap<Object, Object> map = getInstance().getMap("testMapIsLocked");
+        final IReplicatedMap<Object, Object> map = getReplicatedMap("testMapIsLocked");
         map.lock("key1");
         assertTrue(map.isLocked("key1"));
         assertFalse(map.isLocked("key2"));
@@ -574,7 +605,7 @@ public class BasicTest extends HazelcastTestSupport {
 
     @Test
     public void testEntrySet() {
-        final IMap<Object, Object> map = getInstance().getMap("testEntrySet");
+        final IReplicatedMap<Object, Object> map = getReplicatedMap("testEntrySet");
         map.put(1, 1);
         map.put(2, 2);
         map.put(3, 3);
@@ -592,9 +623,8 @@ public class BasicTest extends HazelcastTestSupport {
     @Test
     public void testEntryView() {
         Config config = new Config();
-        config.getMapConfig("default").setStatisticsEnabled(true);
-        HazelcastInstance instance = getInstance();
-        final IMap<Integer, Integer> map = instance.getMap("testEntryView");
+        config.getReplicatedMapConfig("default").setStatisticsEnabled(true);
+        final IReplicatedMap<Integer, Integer> map = getReplicatedMap("testEntryView");
         long time1 = Clock.currentTimeMillis();
         map.put(1, 1);
         map.put(2, 2);
@@ -642,7 +672,7 @@ public class BasicTest extends HazelcastTestSupport {
 
     @Test
     public void testMapTryPut() throws InterruptedException {
-        final IMap<Object, Object> map = getInstance().getMap("testMapTryPut");
+        final IReplicatedMap<Object, Object> map = getReplicatedMap("testMapTryPut");
         final String key1 = "key1";
         final String key2 = "key2";
         map.lock(key1);
@@ -686,7 +716,7 @@ public class BasicTest extends HazelcastTestSupport {
 
     @Test
     public void testGetPutRemoveAsync() {
-        final IMap<Object, Object> map = getInstance().getMap("testGetPutRemoveAsync");
+        final IReplicatedMap<Object, Object> map = getReplicatedMap("testGetPutRemoveAsync");
         Future<Object> ff = map.putAsync(1, 1);
         try {
             assertEquals(null, ff.get());
@@ -704,7 +734,7 @@ public class BasicTest extends HazelcastTestSupport {
     @Test
     public void testGetAllPutAll() throws InterruptedException {
         warmUpPartitions(instances);
-        final IMap<Object, Object> map = getInstance().getMap("testGetAllPutAll");
+        final IReplicatedMap<Object, Object> map = getReplicatedMap("testGetAllPutAll");
         Set ss = new HashSet();
         ss.add(1);
         ss.add(3);
@@ -746,8 +776,8 @@ public class BasicTest extends HazelcastTestSupport {
     public void testPutAllBackup() throws InterruptedException {
         HazelcastInstance instance1 = instances[0];
         HazelcastInstance instance2 = instances[1];
-        final IMap<Object, Object> map = instance1.getMap("testPutAllBackup");
-        final IMap<Object, Object> map2 = instance2.getMap("testPutAllBackup");
+        final IReplicatedMap<Object, Object> map = instance1.getReplicatedMap("testPutAllBackup");
+        final IReplicatedMap<Object, Object> map2 = instance2.getReplicatedMap("testPutAllBackup");
         warmUpPartitions(instances);
 
         Map mm = new HashMap();
@@ -770,7 +800,7 @@ public class BasicTest extends HazelcastTestSupport {
 
     @Test
     public void testMapListenersWithValue() throws InterruptedException {
-        final IMap<Object, Object> map = getInstance().getMap("testMapListenersWithValue");
+        final IReplicatedMap<Object, Object> map = getReplicatedMap("testMapListenersWithValue");
         final Object[] addedKey = new Object[1];
         final Object[] addedValue = new Object[1];
         final Object[] updatedKey = new Object[1];
@@ -817,7 +847,7 @@ public class BasicTest extends HazelcastTestSupport {
 
     @Test
     public void testMapQueryListener() throws InterruptedException {
-        final IMap<Object, Object> map = getInstance().getMap("testMapQueryListener");
+        final IReplicatedMap<Object, Object> map = getReplicatedMap("testMapQueryListener");
         final Object[] addedKey = new Object[1];
         final Object[] addedValue = new Object[1];
         final Object[] updatedKey = new Object[1];
@@ -882,7 +912,7 @@ public class BasicTest extends HazelcastTestSupport {
 
     @Test
     public void testMapListenersWithValueAndKeyFiltered() throws InterruptedException {
-        final IMap<Object, Object> map = getInstance().getMap("testMapListenersWithValueAndKeyFiltered");
+        final IReplicatedMap<Object, Object> map = getReplicatedMap("testMapListenersWithValueAndKeyFiltered");
         final Object[] addedKey = new Object[1];
         final Object[] addedValue = new Object[1];
         final Object[] updatedKey = new Object[1];
@@ -934,7 +964,7 @@ public class BasicTest extends HazelcastTestSupport {
 
     @Test
     public void testMapListenersWithoutValue() throws InterruptedException {
-        final IMap<Object, Object> map = getInstance().getMap("testMapListenersWithoutValue");
+        final IReplicatedMap<Object, Object> map = getReplicatedMap("testMapListenersWithoutValue");
         final Object[] addedKey = new Object[1];
         final Object[] addedValue = new Object[1];
         final Object[] updatedKey = new Object[1];
@@ -980,7 +1010,7 @@ public class BasicTest extends HazelcastTestSupport {
 
     @Test
     public void testPutWithTtl() throws InterruptedException {
-        IMap<String, String> map = getInstance().getMap("testPutWithTtl");
+        IReplicatedMap<String, String> map = getReplicatedMap("testPutWithTtl");
         final CountDownLatch latch = new CountDownLatch(1);
         map.addEntryListener(new EntryAdapter<String, String>() {
             public void entryEvicted(EntryEvent<String, String> event) {
@@ -997,45 +1027,12 @@ public class BasicTest extends HazelcastTestSupport {
 
     @Test
     public void testMapEntryProcessor() throws InterruptedException {
-        IMap<Integer, Integer> map = getInstance().getMap("testMapEntryProcessor");
+        IReplicatedMap<Integer, Integer> map = getReplicatedMap("testMapEntryProcessor");
         map.put(1, 1);
         EntryProcessor entryProcessor = new SampleEntryProcessor();
         map.executeOnKey(1, entryProcessor);
         assertEquals(map.get(1), (Object) 2);
     }
-
-    @Test
-    public void testMapLoaderLoadUpdatingIndex() throws Exception {
-    	MapConfig mapConfig = getInstance().getConfig().getMapConfig("testMapLoaderLoadUpdatingIndex");
-    	List<MapIndexConfig> indexConfigs = mapConfig.getMapIndexConfigs();
-    	indexConfigs.add(new MapIndexConfig("name", true));
-    	
-    	SampleIndexableObjectMapLoader loader = new SampleIndexableObjectMapLoader();
-    	MapStoreConfig storeConfig = new MapStoreConfig();
-    	storeConfig.setFactoryImplementation(loader);
-    	mapConfig.setMapStoreConfig(storeConfig);
-    	
-    	IMap<Integer, SampleIndexableObject> map = getInstance().getMap("testMapLoaderLoadUpdatingIndex");
-    	for (int i = 0; i < 10; i++) {
-    		map.put(i, new SampleIndexableObject("My-" + i, i));
-    	}
-    	
-    	SqlPredicate predicate = new SqlPredicate("name='My-5'");
-    	Set<Entry<Integer, SampleIndexableObject>> result = map.entrySet(predicate);
-    	assertEquals(1, result.size());
-    	assertEquals(5, (int) result.iterator().next().getValue().value);
-    	
-    	map.destroy();
-    	loader.preloadValues = true;
-    	
-    	map = getInstance().getMap("testMapLoaderLoadUpdatingIndex");
-
-    	predicate = new SqlPredicate("name='My-5'");
-    	result = map.entrySet(predicate);
-    	assertEquals(1, result.size());
-    	assertEquals(5, (int) result.iterator().next().getValue().value);
-    }
-    
     
     static class SampleEntryProcessor implements EntryProcessor, EntryBackupProcessor, Serializable {
 

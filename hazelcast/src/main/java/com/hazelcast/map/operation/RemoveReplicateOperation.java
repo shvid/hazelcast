@@ -16,19 +16,25 @@
 
 package com.hazelcast.map.operation;
 
+import java.io.IOException;
+import java.util.Collection;
+
+import com.hazelcast.core.EntryEventType;
+import com.hazelcast.instance.MemberImpl;
+import com.hazelcast.map.EventData;
 import com.hazelcast.map.MapDataSerializerHook;
 import com.hazelcast.map.MapService;
 import com.hazelcast.map.RecordStore;
 import com.hazelcast.map.record.Record;
+import com.hazelcast.nio.Address;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.Data;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
-import com.hazelcast.spi.BackupOperation;
+import com.hazelcast.spi.EventRegistration;
+import com.hazelcast.spi.EventService;
 
-import java.io.IOException;
-
-public final class RemoveReplicateOperation extends KeyBasedMapOperation implements IdentifiedDataSerializable {
+public final class RemoveReplicateOperation extends BaseReplicateOperation implements IdentifiedDataSerializable {
 
     public RemoveReplicateOperation(String name, Data dataKey) {
         super(name, dataKey);
@@ -45,12 +51,18 @@ public final class RemoveReplicateOperation extends KeyBasedMapOperation impleme
         if (record != null) {
             updateSizeEstimator(-calculateRecordSize(record));
             recordStore.deleteRecord(dataKey);
+            mapService.publishReplicatedEvent(name, EntryEventType.REMOVED, dataKey, mapService.toData(record.getValue()), null);
         }
     }
 
     @Override
+	public boolean returnsResponse() {
+		return false;
+	}
+
+	@Override
     public Object getResponse() {
-        return Boolean.TRUE;
+        return null;
     }
 
     protected void writeInternal(ObjectDataOutput out) throws IOException {

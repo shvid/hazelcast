@@ -16,13 +16,11 @@
 
 package com.hazelcast.map.operation;
 
-import com.hazelcast.config.DistributionStrategyConfig;
 import com.hazelcast.core.EntryEventType;
 import com.hazelcast.instance.MemberImpl;
 import com.hazelcast.map.ReplicatedMapConfigAdapter;
 import com.hazelcast.nio.Address;
 import com.hazelcast.nio.serialization.Data;
-import com.hazelcast.partition.PartitionView;
 import com.hazelcast.spi.BackupAwareOperation;
 import com.hazelcast.spi.NodeEngine;
 import com.hazelcast.spi.Operation;
@@ -42,22 +40,25 @@ public abstract class BaseRemoveOperation extends LockAwareOperation implements 
 
     public void afterRun() {
         mapService.interceptAfterRemove(name, dataValue);
-        mapService.publishEvent(getCallerAddress(), name, EntryEventType.REMOVED, dataKey, dataOldValue, null);
-        invalidateNearCaches();
+        if (!(mapContainer.getMapConfig() instanceof ReplicatedMapConfigAdapter)) {
+	        mapService.publishEvent(getCallerAddress(), name, EntryEventType.REMOVED, dataKey, dataOldValue, null);
+	        invalidateNearCaches();
+        }
         if (mapContainer.getWanReplicationPublisher() != null && mapContainer.getWanMergePolicy() != null) {
             // todo should evict operation replicated??
             mapService.publishWanReplicationRemove(name, dataKey, Clock.currentTimeMillis());
         }
         if (mapContainer.getMapConfig() instanceof ReplicatedMapConfigAdapter) {
             NodeEngine nodeEngine = mapService.getNodeEngine();
-            PartitionView partitionView = nodeEngine.getPartitionService().getPartition(getPartitionId());
             for (MemberImpl member : nodeEngine.getClusterService().getMemberList()) {
                 Address address = member.getAddress();
-                if (!partitionView.isBackup(address)) {
+                if (!nodeEngine.getThisAddress().equals(address)) {
                     OperationService os = nodeEngine.getOperationService();
                     Operation op = new RemoveReplicateOperation(name, dataKey);
                     op.setPartitionId(getPartitionId()).setServiceName(getServiceName());
                     os.send(op, address);
+                } else {
+                	mapService.publishReplicatedEvent(name, EntryEventType.REMOVED, dataKey, dataOldValue, dataValue);
                 }
             }
         }

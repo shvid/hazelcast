@@ -116,5 +116,5 @@ public abstract class BaseReplicateOperation extends Operation {
         dataValue = IOUtil.readNullableData(in);
         ttl = in.readLong();
 	}
-
+	
 }

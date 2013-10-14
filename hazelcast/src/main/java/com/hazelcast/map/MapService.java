@@ -575,6 +575,18 @@ public class MapService implements ManagedService, MigrationAwareService,
         mapContainer.getWanReplicationPublisher().publishReplicationEvent(SERVICE_NAME, replicationEvent);
     }
 
+	public void publishReplicatedEvent(String mapName, EntryEventType eventType, Data dataKey, Data oldDataValue, Data newDataValue) {
+        EventService eventService = getNodeEngine().getEventService();
+        MemberImpl member = getNodeEngine().getLocalMember();
+        EventData event = new EventData(member.getUuid(), mapName, member.getAddress(), dataKey, newDataValue, oldDataValue, eventType.getType());
+        Collection<EventRegistration> registrations = eventService.getRegistrations(MapService.SERVICE_NAME, mapName);
+        for (EventRegistration registration : registrations) {
+        	if (registration.isLocalOnly()) {
+        		eventService.publishEvent(MapService.SERVICE_NAME, registration, event, 0);
+        	}
+        }
+	}
+    
     public void publishEvent(Address caller, String mapName, EntryEventType eventType, Data dataKey, Data dataOldValue, Data dataValue) {
         Collection<EventRegistration> candidates = nodeEngine.getEventService().getRegistrations(SERVICE_NAME, mapName);
         Set<EventRegistration> registrationsWithValue = new HashSet<EventRegistration>();

@@ -18,13 +18,31 @@ package com.hazelcast.map.proxy;
  * under the License.
  */
 
+import java.io.IOException;
+import java.util.AbstractMap;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+
 import com.hazelcast.config.DistributionStrategyConfig;
 import com.hazelcast.config.InMemoryFormat;
-import com.hazelcast.config.MapConfig;
 import com.hazelcast.core.EntryView;
 import com.hazelcast.core.IReplicatedMap;
 import com.hazelcast.core.PartitioningStrategy;
-import com.hazelcast.map.*;
+import com.hazelcast.map.EntryProcessor;
+import com.hazelcast.map.MapService;
+import com.hazelcast.map.PartitionContainer;
+import com.hazelcast.map.RecordStore;
+import com.hazelcast.map.ReplicatedMapConfigAdapter;
+import com.hazelcast.map.SimpleEntryView;
 import com.hazelcast.map.record.Record;
 import com.hazelcast.nio.Address;
 import com.hazelcast.nio.ObjectDataInput;
@@ -35,13 +53,6 @@ import com.hazelcast.partition.PartitionView;
 import com.hazelcast.query.Predicate;
 import com.hazelcast.spi.NodeEngine;
 import com.hazelcast.spi.Operation;
-
-import java.io.IOException;
-import java.util.*;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 public class ReplicatedMapProxyImpl<K, V>
         extends MapProxyImpl<K, V> implements IReplicatedMap<K, V> {
@@ -371,9 +382,9 @@ public class ReplicatedMapProxyImpl<K, V>
     protected V findInLocalPartitions(Data keyData, int partitionId) {
         if (nodeEngine.getThisAddress().equals(partitionService.getPartitionOwner(partitionId))) {
             RecordStore recordStore = getService().getRecordStore(partitionId, name);
-            Record record = recordStore.getRecord(keyData);
+            Record<V> record = recordStore.getRecord(keyData);
             if (record != null) {
-                return (V) record.getValue();
+                return record.getValue();
             }
         }
         return null;
@@ -386,13 +397,13 @@ public class ReplicatedMapProxyImpl<K, V>
     }
 
     protected V getValueInternal(K key, Data keyData, int partitionId) {
-        V value = findInLocalPartitions(keyData, partitionId);
+        Object value = findInLocalPartitions(keyData, partitionId);
         if (value != null) {
-            return value;
+            return (V) getService().toObject(value);
         }
         value = findValueInBackup(keyData, partitionId);
         if (value != null) {
-            return value;
+            return (V) getService().toObject(value);
         }
         if (!isEventuallyConsistent()) {
             value = super.get(key);
@@ -400,7 +411,7 @@ public class ReplicatedMapProxyImpl<K, V>
                 storeToLocalRecordStore(keyData, value, partitionId);
             }
         }
-        return null;
+        return (V) getService().toObject(value);
     }
 
     private Set<Entry<K, V>> getFullEntrySetInternal() {

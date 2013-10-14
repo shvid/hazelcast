@@ -33,19 +33,19 @@ public class ReplicatedMapConfig {
 
     private int timeToLiveSeconds = MapConfig.DEFAULT_TTL_SECONDS;
 
-    private InMemoryFormat inMemoryFormat;
+    private InMemoryFormat inMemoryFormat = InMemoryFormat.BINARY;
 
-    private WanReplicationRef wanReplicationRef;
+    private WanReplicationRef wanReplicationRef = null;
 
     private boolean statisticsEnabled = true;
 
     private int consistencyLevel = DEFAULT_CONSISTENCY_LEVEL;
 
-    private List<MapIndexConfig> mapIndexConfigs;
+    private List<MapIndexConfig> mapIndexConfigs = null;
 
-    private List<EntryListenerConfig> listenerConfigs;
+    private List<EntryListenerConfig> listenerConfigs = null;
 
-    private PartitioningStrategyConfig partitioningStrategyConfig;
+    private PartitioningStrategyConfig partitioningStrategyConfig = null;
 
     private String mergePolicy = MapConfig.DEFAULT_MAP_MERGE_POLICY;
 
