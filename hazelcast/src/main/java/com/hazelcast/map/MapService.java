@@ -576,6 +576,15 @@ public class MapService implements ManagedService, MigrationAwareService,
     }
 
 	public void publishReplicatedEvent(String mapName, EntryEventType eventType, Data dataKey, Data oldDataValue, Data newDataValue) {
+		if (eventType == EntryEventType.UPDATED) {
+			if (oldDataValue == null && newDataValue == null) {
+				return;
+			}
+			if (oldDataValue != null && oldDataValue.equals(newDataValue)) {
+				// TODO return;
+			}
+		}
+		
         EventService eventService = getNodeEngine().getEventService();
         MemberImpl member = getNodeEngine().getLocalMember();
         EventData event = new EventData(member.getUuid(), mapName, member.getAddress(), dataKey, newDataValue, oldDataValue, eventType.getType());

@@ -58,7 +58,7 @@ public abstract class BaseRemoveOperation extends LockAwareOperation implements 
                     op.setPartitionId(getPartitionId()).setServiceName(getServiceName());
                     os.send(op, address);
                 } else {
-                	mapService.publishReplicatedEvent(name, EntryEventType.REMOVED, dataKey, dataOldValue, dataValue);
+                	mapService.publishReplicatedEvent(name, EntryEventType.REMOVED, dataKey, dataOldValue, dataOldValue);
                 }
             }
         }

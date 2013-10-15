@@ -3,6 +3,7 @@ package com.hazelcast.map;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -18,7 +19,7 @@ public class ReplicatedMapWrapper<K, V> implements IReplicatedMap<K, V> {
 
 	private final IReplicatedMap<K, V> wrapped;
 
-	private final CountDownLatch latch = new CountDownLatch(1);
+	private final Map<K, CountDownLatch> puts = new ConcurrentHashMap<K, CountDownLatch>();
 
 	ReplicatedMapWrapper(IReplicatedMap<K, V> wrapped) {
 		this.wrapped = wrapped;
@@ -26,22 +27,42 @@ public class ReplicatedMapWrapper<K, V> implements IReplicatedMap<K, V> {
 
 			@Override
 			public void entryAdded(EntryEvent<K, V> event) {
-				latch.countDown();
+				CountDownLatch latch = puts.get(event.getKey());
+				if (latch != null) {
+					latch.countDown();
+				} else {
+					System.out.println(event);
+				}
 			}
 
 			@Override
 			public void entryRemoved(EntryEvent<K, V> event) {
-				latch.countDown();
+				CountDownLatch latch = puts.get(event.getKey());
+				if (latch != null) {
+					latch.countDown();
+				} else {
+					System.out.println(event);
+				}
 			}
 
 			@Override
 			public void entryUpdated(EntryEvent<K, V> event) {
-				latch.countDown();
+				CountDownLatch latch = puts.get(event.getKey());
+				if (latch != null) {
+					latch.countDown();
+				} else {
+					System.out.println(event);
+				}
 			}
 
 			@Override
 			public void entryEvicted(EntryEvent<K, V> event) {
-				latch.countDown();
+				CountDownLatch latch = puts.get(event.getKey());
+				if (latch != null) {
+					latch.countDown();
+				} else {
+					System.out.println(event);
+				}
 			}
 		});
 	}
@@ -83,9 +104,12 @@ public class ReplicatedMapWrapper<K, V> implements IReplicatedMap<K, V> {
 	}
 
 	public V put(K key, V value) {
+		CountDownLatch latch = new CountDownLatch(1);
+		puts.put(key, latch);
 		V v = wrapped.put(key, value);
 		try {
 			latch.await();
+			puts.remove(key);
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}
@@ -153,9 +177,12 @@ public class ReplicatedMapWrapper<K, V> implements IReplicatedMap<K, V> {
 	}
 
 	public V put(K key, V value, long ttl, TimeUnit timeunit) {
+		CountDownLatch latch = new CountDownLatch(1);
+		puts.put(key, latch);
 		V v = wrapped.put(key, value, ttl, timeunit);
 		try {
 			latch.await();
+			puts.remove(key);
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}

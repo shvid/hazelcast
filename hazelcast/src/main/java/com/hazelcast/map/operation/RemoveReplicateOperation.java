@@ -17,22 +17,16 @@
 package com.hazelcast.map.operation;
 
 import java.io.IOException;
-import java.util.Collection;
 
 import com.hazelcast.core.EntryEventType;
-import com.hazelcast.instance.MemberImpl;
-import com.hazelcast.map.EventData;
 import com.hazelcast.map.MapDataSerializerHook;
 import com.hazelcast.map.MapService;
 import com.hazelcast.map.RecordStore;
 import com.hazelcast.map.record.Record;
-import com.hazelcast.nio.Address;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.Data;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
-import com.hazelcast.spi.EventRegistration;
-import com.hazelcast.spi.EventService;
 
 public final class RemoveReplicateOperation extends BaseReplicateOperation implements IdentifiedDataSerializable {
 
@@ -49,9 +43,11 @@ public final class RemoveReplicateOperation extends BaseReplicateOperation imple
         RecordStore recordStore = mapService.getRecordStore(partitionId, name);
         Record record = recordStore.getRecord(dataKey);
         if (record != null) {
+        	Object oldValue = record.getValue();
             updateSizeEstimator(-calculateRecordSize(record));
             recordStore.deleteRecord(dataKey);
-            mapService.publishReplicatedEvent(name, EntryEventType.REMOVED, dataKey, mapService.toData(record.getValue()), null);
+            Data dataOldValue = mapService.toData(oldValue);
+            mapService.publishReplicatedEvent(name, EntryEventType.REMOVED, dataKey, dataOldValue, dataOldValue);
         }
     }
 

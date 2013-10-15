@@ -34,6 +34,8 @@ import java.util.concurrent.TimeoutException;
 
 import com.hazelcast.config.DistributionStrategyConfig;
 import com.hazelcast.config.InMemoryFormat;
+import com.hazelcast.core.EntryEvent;
+import com.hazelcast.core.EntryListener;
 import com.hazelcast.core.EntryView;
 import com.hazelcast.core.IReplicatedMap;
 import com.hazelcast.core.PartitioningStrategy;
@@ -54,9 +56,19 @@ import com.hazelcast.query.Predicate;
 import com.hazelcast.spi.NodeEngine;
 import com.hazelcast.spi.Operation;
 
+@SuppressWarnings({"unchecked", "rawtypes"})
 public class ReplicatedMapProxyImpl<K, V>
         extends MapProxyImpl<K, V> implements IReplicatedMap<K, V> {
 
+	private EntryListenerEventAdapter<K, V> nonIncludedValueAdapter = new EntryListenerEventAdapter<K, V>() {
+		
+		@Override
+		public EntryEvent<K, V> adapt(EntryEvent<K, V> event) {
+			return new EntryEvent<K, V>(event.getSource(), event.getMember(),
+					event.getEventType().getType(), event.getKey(), null);
+		}
+	}; 
+	
     private final DistributionStrategyConfig distributionStrategyConfig;
 
     private final PartitionService partitionService;
@@ -81,6 +93,45 @@ public class ReplicatedMapProxyImpl<K, V>
     }
 
     @Override
+	public String addEntryListener(EntryListener listener, boolean includeValue) {
+		return addEntryListener(listener, (K) null, includeValue);
+	}
+
+	@Override
+	public String addEntryListener(EntryListener<K, V> listener, final K key, boolean includeValue) {
+		EntryListener<K, V> wrapper = new KeyedEntryListener<K, V>(listener, includeValue ? null : nonIncludedValueAdapter, new EntryListenerPredicate<K, V>() {
+			@Override
+			public boolean apply(EntryEvent<K, V> event) {
+				return key == null || (event.getKey() != null && event.getKey().equals(key));
+			}
+		});
+		return super.addLocalEntryListener(wrapper);
+	}
+
+	@Override
+	public String addEntryListener(EntryListener<K, V> listener, final Predicate<K, V> predicate, final K key, boolean includeValue) {
+		EntryListener<K, V> wrapper = new KeyedEntryListener<K, V>(listener, includeValue ? null : nonIncludedValueAdapter, new EntryListenerPredicate<K, V>() {
+			@Override
+			public boolean apply(EntryEvent<K, V> event) {
+				return key == null || (event.getKey() != null && event.getKey().equals(key) &&
+						predicate.apply(new AbstractMap.SimpleImmutableEntry(event.getKey(), event.getValue())));
+			}
+		});
+		return super.addLocalEntryListener(wrapper);
+	}
+
+	@Override
+	public String addEntryListener(EntryListener<K, V> listener, final Predicate<K, V> predicate, boolean includeValue) {
+		EntryListener<K, V> wrapper = new KeyedEntryListener<K, V>(listener, includeValue ? null : nonIncludedValueAdapter, new EntryListenerPredicate<K, V>() {
+			@Override
+			public boolean apply(EntryEvent<K, V> event) {
+				return predicate.apply(new AbstractMap.SimpleImmutableEntry(event.getKey(), event.getValue()));
+			}
+		});
+		return super.addLocalEntryListener(wrapper);
+	}
+
+	@Override
     public V get(Object k) {
         Data keyData = getService().toData(k, partitionStrategy);
         int partitionId = partitionService.getPartitionId(keyData);
@@ -428,7 +479,8 @@ public class ReplicatedMapProxyImpl<K, V>
         return getService().toData(value);
     }
 
-    private class InitiallyFillReplicatedMapOperation extends Operation {
+    @SuppressWarnings("serial")
+	private class InitiallyFillReplicatedMapOperation extends Operation {
         private final PartitioningStrategy<K> partitioningStrategy;
 
         public InitiallyFillReplicatedMapOperation(PartitioningStrategy<K> partitioningStrategy) {
@@ -475,4 +527,67 @@ public class ReplicatedMapProxyImpl<K, V>
             throw new UnsupportedOperationException("InitiallyFillReplicatedMapOperation cannot be serialized");
         }
     }
+    
+    private static class KeyedEntryListener<K, V> implements EntryListener<K, V> {
+
+    	private final EntryListenerEventAdapter<K, V> adapter;
+    	private final EntryListenerPredicate<K, V> predicate;
+    	private final EntryListener<K, V> entryListener;
+    	
+    	private KeyedEntryListener(EntryListener<K, V> entryListener, EntryListenerEventAdapter<K, V> adapter, EntryListenerPredicate<K, V> predicate) {
+    		if(entryListener == null) {
+    			throw new NullPointerException("entryListener must not be null");
+    		}
+    		if(predicate == null) {
+    			throw new NullPointerException("predicate must not be null");
+    		}
+    		this.entryListener = entryListener;
+    		this.predicate = predicate;
+    		this.adapter = adapter;
+    	}
+    	
+		@Override
+		public void entryAdded(EntryEvent<K, V> event) {
+			if (predicate.apply(event)) {
+				entryListener.entryAdded(adapt(event));
+			}
+		}
+
+		@Override
+		public void entryRemoved(EntryEvent<K, V> event) {
+			if (predicate.apply(event)) {
+				entryListener.entryRemoved(adapt(event));
+			}
+		}
+
+		@Override
+		public void entryUpdated(EntryEvent<K, V> event) {
+			if (predicate.apply(event)) {
+				entryListener.entryUpdated(adapt(event));
+			}
+		}
+
+		@Override
+		public void entryEvicted(EntryEvent<K, V> event) {
+			if (predicate.apply(event)) {
+				entryListener.entryEvicted(adapt(event));
+			}
+		}
+		
+		private EntryEvent<K, V> adapt(EntryEvent<K, V> event) {
+			if (adapter == null) {
+				return event;
+			}
+			return adapter.adapt(event);
+		}
+    }
+    
+    private static interface EntryListenerPredicate<K, V> {
+    	boolean apply(EntryEvent<K, V> event);
+    }
+    
+    private static interface EntryListenerEventAdapter<K, V> {
+    	EntryEvent<K, V> adapt(EntryEvent<K, V> event);
+    }
+    
 }

@@ -25,6 +25,8 @@ import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.Data;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
+import com.hazelcast.partition.PartitionService;
+import com.hazelcast.partition.PartitionView;
 
 public final class PutReplicateOperation extends BaseReplicateOperation implements IdentifiedDataSerializable {
 
@@ -36,6 +38,12 @@ public final class PutReplicateOperation extends BaseReplicateOperation implemen
     }
 
     public void run() {
+    	PartitionService partitionService = getNodeEngine().getPartitionService();
+    	PartitionView partitionView = partitionService.getPartition(partitionContainer.getPartitionId());
+    	if (partitionView.getReplicaIndexOf(getNodeEngine().getThisAddress()) != -1) {
+    		return;
+    	}
+
         Record record = recordStore.getRecord(dataKey);
         if (record == null) {
             record = mapService.createRecord(name, dataKey, dataValue, ttl, false);
@@ -43,10 +51,12 @@ public final class PutReplicateOperation extends BaseReplicateOperation implemen
             recordStore.putRecord(dataKey, record);
             mapService.publishReplicatedEvent(name, EntryEventType.ADDED, dataKey, null, dataValue);
         } else {
+        	Object oldValue = record.getValue();
+            EntryEventType eventType = oldValue == null ? EntryEventType.ADDED : EntryEventType.UPDATED;
             updateSizeEstimator(-calculateRecordSize(record));
             mapContainer.getRecordFactory().setValue(record, dataValue);
             updateSizeEstimator(calculateRecordSize(record));
-            mapService.publishReplicatedEvent(name, EntryEventType.ADDED, dataKey, mapService.toData(record.getValue()), dataValue);
+            mapService.publishReplicatedEvent(name, eventType, dataKey, mapService.toData(oldValue), dataValue);
         }
     }
 

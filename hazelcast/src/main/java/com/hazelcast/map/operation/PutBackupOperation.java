@@ -16,7 +16,9 @@
 
 package com.hazelcast.map.operation;
 
+import com.hazelcast.core.EntryEventType;
 import com.hazelcast.map.MapDataSerializerHook;
+import com.hazelcast.map.ReplicatedMapConfigAdapter;
 import com.hazelcast.map.record.Record;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
@@ -48,10 +50,18 @@ public final class PutBackupOperation extends KeyBasedMapOperation implements Ba
             record = mapService.createRecord(name, dataKey, dataValue, ttl, false);
             updateSizeEstimator(calculateRecordSize(record));
             recordStore.putRecord(dataKey, record);
+            if (mapContainer.getMapConfig() instanceof ReplicatedMapConfigAdapter) {
+                mapService.publishReplicatedEvent(name, EntryEventType.ADDED, dataKey, null, dataValue);
+            }
         } else {
+        	Object oldValue = record.getValue();
+            EntryEventType eventType = oldValue == null ? EntryEventType.ADDED : EntryEventType.UPDATED;
             updateSizeEstimator(-calculateRecordSize(record));
             mapContainer.getRecordFactory().setValue(record, dataValue);
             updateSizeEstimator(calculateRecordSize(record));
+            if (mapContainer.getMapConfig() instanceof ReplicatedMapConfigAdapter) {
+                mapService.publishReplicatedEvent(name, eventType, dataKey, mapService.toData(oldValue), dataValue);
+            }
         }
         if (unlockKey) {
             recordStore.forceUnlock(dataKey);
