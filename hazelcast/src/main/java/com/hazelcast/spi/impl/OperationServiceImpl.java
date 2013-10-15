@@ -16,6 +16,28 @@
 
 package com.hazelcast.spi.impl;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
+
+import com.hazelcast.config.ReplicatedMapConfig;
 import com.hazelcast.core.HazelcastException;
 import com.hazelcast.core.HazelcastInstanceNotActiveException;
 import com.hazelcast.core.MemberLeftException;
@@ -23,8 +45,6 @@ import com.hazelcast.instance.MemberImpl;
 import com.hazelcast.instance.Node;
 import com.hazelcast.instance.OutOfMemoryErrorDispatcher;
 import com.hazelcast.logging.ILogger;
-import com.hazelcast.map.MapService;
-import com.hazelcast.map.operation.PutReplicateOperation;
 import com.hazelcast.nio.Address;
 import com.hazelcast.nio.Connection;
 import com.hazelcast.nio.Packet;
@@ -32,7 +52,20 @@ import com.hazelcast.nio.serialization.Data;
 import com.hazelcast.partition.PartitionService;
 import com.hazelcast.partition.PartitionServiceImpl;
 import com.hazelcast.partition.PartitionView;
-import com.hazelcast.spi.*;
+import com.hazelcast.spi.BackupAwareOperation;
+import com.hazelcast.spi.ExecutionService;
+import com.hazelcast.spi.Invocation;
+import com.hazelcast.spi.InvocationBuilder;
+import com.hazelcast.spi.Notifier;
+import com.hazelcast.spi.Operation;
+import com.hazelcast.spi.OperationAccessor;
+import com.hazelcast.spi.OperationFactory;
+import com.hazelcast.spi.OperationService;
+import com.hazelcast.spi.PartitionAwareOperation;
+import com.hazelcast.spi.ReadonlyOperation;
+import com.hazelcast.spi.ReplicationAwareOperation;
+import com.hazelcast.spi.ResponseHandler;
+import com.hazelcast.spi.WaitSupport;
 import com.hazelcast.spi.annotation.PrivateApi;
 import com.hazelcast.spi.exception.CallTimeoutException;
 import com.hazelcast.spi.exception.CallerNotMemberException;
@@ -42,11 +75,11 @@ import com.hazelcast.spi.impl.PartitionIteratingOperation.PartitionResponse;
 import com.hazelcast.util.Clock;
 import com.hazelcast.util.executor.AbstractExecutorThreadFactory;
 import com.hazelcast.util.executor.SingleExecutorThreadFactory;
-import com.hazelcast.util.scheduler.*;
-
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicLong;
+import com.hazelcast.util.scheduler.EntryTaskScheduler;
+import com.hazelcast.util.scheduler.EntryTaskSchedulerFactory;
+import com.hazelcast.util.scheduler.ScheduleType;
+import com.hazelcast.util.scheduler.ScheduledEntry;
+import com.hazelcast.util.scheduler.ScheduledEntryProcessor;
 
 /**
  * @author mdogan 12/14/12
@@ -70,6 +103,7 @@ final class OperationServiceImpl implements OperationService {
     private final ConcurrentMap<Long, Semaphore> backupCalls;
     private final int operationThreadCount;
     private final EntryTaskScheduler<Object, ScheduledBackup> backupScheduler;
+    private final EntryTaskScheduler<Object, ScheduledReplication> replicationScheduler;
     private final BlockingQueue<Runnable> responseWorkQueue = new LinkedBlockingQueue<Runnable>();
 
     OperationServiceImpl(NodeEngineImpl nodeEngine) {
@@ -105,6 +139,8 @@ final class OperationServiceImpl implements OperationService {
         backupCalls = new ConcurrentHashMap<Long, Semaphore>(1000, 0.75f, concurrencyLevel);
         backupScheduler = EntryTaskSchedulerFactory.newScheduler(nodeEngine.getExecutionService().getScheduledExecutor(),
                 new ScheduledBackupProcessor(), ScheduleType.SCHEDULE_IF_NEW);
+        replicationScheduler = EntryTaskSchedulerFactory.newScheduler(nodeEngine.getExecutionService().getScheduledExecutor(),
+                new ScheduledReplicationProcessor(), ScheduleType.SCHEDULE_IF_NEW);
     }
 
     @Override
@@ -287,6 +323,12 @@ final class OperationServiceImpl implements OperationService {
                     response = new Response(op.getResponse(), op.getCallId(), syncBackupCount);
                 }
             }
+            if (op instanceof ReplicationAwareOperation) {
+            	final ReplicationAwareOperation repAwareOp = (ReplicationAwareOperation) op;
+            	if (repAwareOp.shouldReplicate()) {
+            		sendReplications(repAwareOp);
+            	}
+            }
             if (returnsResponse) {
                 if (response == null) {
                     response = op.getResponse();
@@ -351,6 +393,46 @@ final class OperationServiceImpl implements OperationService {
         }
     }
 
+    private void sendReplications(ReplicationAwareOperation repAwareOp) throws Exception {
+    	final Operation op = (Operation) repAwareOp;
+    	int memberCount = nodeEngine.getClusterService().getMemberList().size() - 1;
+    	int consistencyLevel = repAwareOp.getConsistencyLevel();
+    	int asyncReplications = memberCount - consistencyLevel > 0
+    			? Math.min(memberCount - consistencyLevel, consistencyLevel) : ReplicatedMapConfig.DEFAULT_CONSISTENCY_LEVEL;
+    	int totalReplications = consistencyLevel + asyncReplications;
+    			
+        final String serviceName = op.getServiceName();
+        final int partitionId = op.getPartitionId();
+
+        int repIndex = 0;
+        for (MemberImpl member : nodeEngine.getClusterService().getMemberList()) {
+        	if (member != null || node.getThisAddress().equals(member.getAddress())) {
+        		continue;
+        	}
+        	
+        	Operation repOp = repAwareOp.getReplicationOperation();
+        	if (repOp == null) {
+                throw new IllegalArgumentException("Replication operation should not be null!");
+        	}
+        	repOp.setPartitionId(partitionId).setServiceName(serviceName);
+            OperationAccessor.setCallId(repOp, op.getCallId());
+   	
+        	if (repIndex < consistencyLevel) {
+        		send(repOp, member.getAddress());
+
+        	} else if (repIndex < totalReplications) {
+                final RemoteCallKey key = new RemoteCallKey(op.getCallerAddress(), op.getCallId());
+                if (logger.isFinestEnabled()) {
+                    logger.finest( "Scheduling -> " + repOp);
+                }
+                replicationScheduler.schedule(500, key, new ScheduledReplication(repOp, partitionId, member.getAddress()));
+
+        	} else {
+        		break;
+        	}
+        }
+    }
+    
     private int sendBackups(BackupAwareOperation backupAwareOp) throws Exception {
         final Operation op = (Operation) backupAwareOp;
         final boolean returnsResponse = op.returnsResponse();
@@ -425,6 +507,22 @@ final class OperationServiceImpl implements OperationService {
         }
     }
 
+    private class ScheduledReplicationProcessor implements ScheduledEntryProcessor<Object, ScheduledReplication> {
+
+        public void process(EntryTaskScheduler<Object, ScheduledReplication> scheduler, Collection<ScheduledEntry<Object, ScheduledReplication>> scheduledEntries) {
+            for (ScheduledEntry<Object, ScheduledReplication> entry : scheduledEntries) {
+                final ScheduledReplication replication = entry.getValue();
+                if (!replication.replication()) {
+                    final int retries = replication.retries;
+                    if (logger.isFinestEnabled()) {
+                        logger.finest( "Re-scheduling[" + retries + "] -> " + replication);
+                    }
+                    scheduler.schedule(entry.getScheduledDelayMillis() * retries, entry.getKey(), replication);
+                }
+            }
+        }
+    }
+    
     private class ScheduledBackup {
         final Backup backup;
         final int partitionId;
@@ -454,6 +552,36 @@ final class OperationServiceImpl implements OperationService {
             sb.append("backup=").append(backup);
             sb.append(", partitionId=").append(partitionId);
             sb.append(", replicaIndex=").append(replicaIndex);
+            sb.append('}');
+            return sb.toString();
+        }
+    }
+    
+    private class ScheduledReplication {
+        final Operation operation;
+        final int partitionId;
+        final Address target;
+        volatile int retries = 0;
+
+        private ScheduledReplication(Operation operation, int partitionId, Address target) {
+            this.operation = operation;
+            this.partitionId = partitionId;
+            this.target = target;
+        }
+
+        public boolean replication() {
+            if (target != null && !target.equals(node.getThisAddress())) {
+                send(operation, target);
+                return true;
+            }
+            return ++retries >= 10; // if retried 10 times, give-up!
+        }
+
+        @Override
+        public String toString() {
+            final StringBuilder sb = new StringBuilder("ScheduledReplication{");
+            sb.append("operation=").append(operationThreadCount);
+            sb.append(", partitionId=").append(partitionId);
             sb.append('}');
             return sb.toString();
         }
