@@ -406,7 +406,7 @@ final class OperationServiceImpl implements OperationService {
 
         int repIndex = 0;
         for (MemberImpl member : nodeEngine.getClusterService().getMemberList()) {
-        	if (member != null || node.getThisAddress().equals(member.getAddress())) {
+        	if (member == null || node.getThisAddress().equals(member.getAddress())) {
         		continue;
         	}
         	
